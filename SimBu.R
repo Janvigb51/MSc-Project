@@ -86,5 +86,5 @@ bulk_counts_df <- as.data.frame(SummarizedExperiment::assays(simulation_mirror_d
 print("writing to file")
 write.table(bulk_counts_df, file = "C:/Users/janvi/Desktop/MSc Project/deconv_inputs/cords-breast-100samples-2000cells-20240618/bulk_counts_2000cells_100samps.txt", quote = F, sep = "\t", row.names = F)
 write.table(simulation_mirror_db$cell_fractions, file = "C:/Users/janvi/Desktop/MSc Project/deconv_inputs/cords-breast-100samples-2000cells-20240618/bulk_props_2000cells_100samps.txt", quote = F, sep = "\t", row.names = T)
-# bulk counts df is our pseudo bulk samples that we feed in Insta Prism
-# simulation mirror db is our ground truth data that we use to compare deconv results (the estimated)
+# simulation_mirror_db$bulk is our pseudo bulk samples that we feed in Insta Prism
+# simulationm-irror_db$cell_fractions is our ground truth data that we use to compare deconv results (the estimated)
