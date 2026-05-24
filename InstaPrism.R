@@ -74,6 +74,43 @@ rmse_by_celltype <- sapply(colnames(truth_frac),
 function(ct) {sqrt(mean((truth_frac[, ct] - estimated_frac[, ct])^2))})
 rmse_by_celltype
 
-# deconvolved gene expression for 1 cell type
+## 6) Plot of true vs estimated
+plot(
+  as.vector(as.matrix(truth_frac)),
+  as.vector(as.matrix(estimated_frac)),
+  xlab = "True cell-type proportions",
+  ylab = "Estimated cell-type proportions",
+  main = "InstaPrism deconvolution performance")
+
+abline(0, 1, col = "red", lty = 2)
+
+## 7) To know gene expression within a particular CAF type
 Z = get_Z_array(deconv_res) # a sample by gene by cell-type array
-head(Z[,1:10,'malignant'])
+head(Z[,1:10,'iCAF'])
+
+## 8) Plot coloured by CAF type
+plot_df <- data.frame(
+  truth = as.vector(as.matrix(truth_frac)),
+  estimated = as.vector(as.matrix(estimated_frac)),
+  CAFtype = rep(colnames(truth_frac), each = nrow(truth_frac))
+)
+
+plot(
+  plot_df$truth,
+  plot_df$estimated,
+  xlab = "True cell-type proportions",
+  ylab = "Estimated cell-type proportions",
+  main = "InstaPrism deconvolution performance",
+  pch = 16,
+  col = as.factor(plot_df$CAFtype)
+)
+
+abline(0, 1, col = "red", lty = 2, lwd = 1.8)
+
+legend(
+  "topleft",
+  legend = levels(as.factor(plot_df$CAFtype)),
+  col = seq_along(levels(as.factor(plot_df$CAFtype))),
+  pch = 15,
+  cex = 0.7
+)
