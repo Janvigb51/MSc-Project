@@ -114,3 +114,34 @@ legend(
   pch = 15,
   cex = 0.7
 )
+
+## 9) Faceted plot per CAF type
+# Long-format plotting table needed for ggplot
+plot2_df <- data.frame(
+  sample = rep(rownames(truth_frac), times = ncol(truth_frac)),
+  CAFtype = rep(colnames(truth_frac), each = nrow(truth_frac)),
+  truth = as.vector(as.matrix(truth_frac)),
+  estimated = as.vector(as.matrix(estimated_frac)))
+
+# Faceted Plot
+library(ggplot2)
+# ggplot(plot_df, aes(x = truth, y = estimated)) +
+#   geom_point(size = 1.8, alpha = 0.7) +
+#   geom_abline(intercept = 0, slope = 1, colour = "red", linetype = "dashed", linewidth = 0.8) +
+#   facet_wrap(~ CAFtype, scales = "free") +
+#   theme_bw() +
+#   labs(
+#     title = "InstaPrism deconvolution performance by CAF type",
+#     x = "True cell-type proportion",
+#     y = "Estimated cell-type proportion")
+ggplot(plot_df, aes(x = truth, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, colour = "red",
+              linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ CAFtype) +
+  coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
+  theme_bw() +
+  labs(
+    title = "InstaPrism deconvolution performance by CAF type",
+    x = "True cell-type proportion",
+    y = "Estimated cell-type proportion")
