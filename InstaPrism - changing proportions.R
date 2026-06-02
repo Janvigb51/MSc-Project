@@ -86,3 +86,58 @@ mCAF_cor
 # RMSE
 mCAF_rmse <- sqrt(mean((truth_mCAF_custom[, "mCAF"] - estimated_mCAF_custom[, "mCAF"])^2))
 mCAF_rmse
+
+# 9) Faceted plots
+## Option 1: Estimated proportion of other CAFs ################################
+plot_mCAF_df <- data.frame(
+  sample = rep(rownames(truth_mCAF_custom), times = ncol(truth_mCAF_custom)),
+  CAFtype = rep(colnames(truth_mCAF_custom), each = nrow(truth_mCAF_custom)),
+  
+  # x-axis: the manipulated mCAF truth, repeated for every CAF panel
+  true_mCAF = rep(truth_mCAF_custom[, "mCAF"], times = ncol(truth_mCAF_custom)),
+  
+  # y-axis: estimated proportion for each CAF type
+  estimated = as.vector(as.matrix(estimated_mCAF_custom)),
+  
+  # optional: the actual true proportion of each CAF type in that sample
+  true_CAF = as.vector(as.matrix(truth_mCAF_custom)))
+
+library(ggplot2)
+ggplot(plot_mCAF_df, aes(x = true_mCAF, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  facet_wrap(~ CAFtype, ncol = 5) +
+  theme_bw() +
+  labs(
+    title = "Effect of changing mCAF on other CAFs",
+    x = "True mCAF proportion",
+    y = "Estimated CAF proportion")
+
+## Option 2: True + Estimated proportion of other CAFs #########################
+
+plot_mCAF_compare_df <- rbind(
+  data.frame(
+    sample = rep(rownames(truth_mCAF_custom), times = ncol(truth_mCAF_custom)),
+    CAFtype = rep(colnames(truth_mCAF_custom), each = nrow(truth_mCAF_custom)),
+    true_mCAF = rep(truth_mCAF_custom[, "mCAF"], times = ncol(truth_mCAF_custom)),
+    value = as.vector(as.matrix(truth_mCAF_custom)),
+    Source = "Truth"
+  ),
+  data.frame(
+    sample = rep(rownames(estimated_mCAF_custom), times = ncol(estimated_mCAF_custom)),
+    CAFtype = rep(colnames(estimated_mCAF_custom), each = nrow(estimated_mCAF_custom)),
+    true_mCAF = rep(truth_mCAF_custom[, "mCAF"], times = ncol(estimated_mCAF_custom)),
+    value = as.vector(as.matrix(estimated_mCAF_custom)),
+    Source = "InstaPrism"
+  )
+)
+
+ggplot(plot_mCAF_compare_df, aes(x = true_mCAF, y = value, colour = Source)) +
+  geom_point(size = 1.6, alpha = 0.7) +
+  stat_summary(aes(group = Source), fun = mean, geom = "line", linewidth = 0.9) +
+  facet_wrap(~ CAFtype, ncol = 5) +
+  theme_bw() +
+  labs(
+    title = "True vs estimated CAFs when mCAF is varied",
+    x = "True mCAF proportion",
+    y = "CAF proportion"
+  )
