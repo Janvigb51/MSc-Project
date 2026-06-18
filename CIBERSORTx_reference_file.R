@@ -15,34 +15,32 @@ meta <- meta[colnames(sparse_matrix), ]
 stopifnot(all(rownames(meta) == colnames(sparse_matrix)))
 
 # Get CAF subtype labels
-caf_labels <- meta$CAFtype   # change this if your column has a different name
+# Cell names (columns) belonging to each CAF type
+caf_labels <- as.character(meta$CAFtype)
 
-# Rename cell columns so CIBERSORTx knows the cell type
-colnames(sparse_matrix) <- paste0(caf_labels, "_", seq_along(caf_labels))
+# Clear any spaces if needed
+caf_labels <- gsub(" ", "_", caf_labels)
 
-# Optional but recommended: downsample cells per CAF subtype first
-# set.seed(20240618)
-# 
-# cells_to_keep <- unlist(
-#   tapply(seq_along(caf_labels), caf_labels, function(x) {
-#     sample(x, min(length(x), 200))
-#   })
-# )
-# 
-# sparse_matrix_small <- sparse_matrix[, cells_to_keep]
+# Build the first row:
+# first column = GeneSymbol
+# remaining columns = CAF subtype labels
+first_row <- c("GeneSymbol", caf_labels)
 
-# Convert to a data frame for writing
-cibersortx_ref <- data.frame(
+# Build the expression table:
+# first column = gene names
+# remaining columns = expression values
+expr_table <- cbind(
   GeneSymbol = rownames(sparse_matrix),
-  as.matrix(sparse_matrix),
-  check.names = FALSE
-)
+  as.matrix(sparse_matrix))
 
-# Write tab-delimited file
+# Combine first row + expression table
+cibersortx_ref <- rbind(first_row, expr_table)
+
+# Write tab-delimited file without column names
 write.table(
   cibersortx_ref,
-  file = "CIBERSORTx_CAF_single_cell_reference.txt",
+  file = "CIBERSORTx_scref.txt",
   sep = "\t",
   quote = FALSE,
-  row.names = FALSE
-)
+  row.names = FALSE,
+  col.names = FALSE)
