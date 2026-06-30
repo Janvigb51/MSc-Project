@@ -75,7 +75,7 @@ breast_signature_dwls <- omnideconv::build_model(
   diff_cutoff = 0.5,
   ncores = 3,
   verbose = TRUE)
-saveRDS(breast_signature_dwls, "breast_dwls_signature_FINAL.rds")
+saveRDS(breast_signature_dwls, "dwls_results/breast_dwls_signature_FINAL.rds")
 
 lung_signature_dwls <- omnideconv::build_model(
   single_cell_object = lung_sc_counts2,
@@ -86,7 +86,7 @@ lung_signature_dwls <- omnideconv::build_model(
   diff_cutoff = 0.5,
   ncores = 3,
   verbose = TRUE)
-saveRDS(lung_signature_dwls, "lung_dwls_signature_FINAL.rds")
+saveRDS(lung_signature_dwls, "dwls_results/lung_dwls_signature_FINAL.rds")
 
 ### 7) Run DWLS Deconvolution
 common_dwls_genes_breast <- intersect(rownames(breast_signature_dwls), rownames(breast_bulk_tpm2))
@@ -97,7 +97,7 @@ breast_dwls_est <- omnideconv::deconvolute(
   dwls_submethod = "DampenedWLS",
   normalize_results = TRUE,
   verbose = TRUE)
-write.csv(breast_dwls_est, "breast_dwls_estimates_FINAL.csv")
+write.csv(breast_dwls_est, "dwls_results/breast_dwls_estimates_FINAL.csv")
 
 common_dwls_genes_lung <- intersect(rownames(lung_signature_dwls), rownames(lung_bulk_tpm2))
 lung_dwls_est <- omnideconv::deconvolute(
@@ -107,7 +107,7 @@ lung_dwls_est <- omnideconv::deconvolute(
   dwls_submethod = "DampenedWLS",
   normalize_results = TRUE,
   verbose = TRUE)
-write.csv(lung_dwls_est, "lung_dwls_estimates_FINAL.csv")
+write.csv(lung_dwls_est, "dwls_results/lung_dwls_estimates_FINAL.csv")
 
 ### 8) Performance Evaluation Function
 evaluate_deconv <- function(truth, estimated) {
@@ -329,4 +329,4 @@ text(
   y = label_pos_lung$ypos,
   labels = label_pos_lung$CAFtype,
   cex = 0.75,
-  font = 1)
+  font = 1)                         
