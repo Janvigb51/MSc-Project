@@ -66,6 +66,17 @@ all(rownames(lung_sc_counts2) == rownames(lung_bulk_tpm2))
 
 ### FOR OMNIDECONV METHODS:
 ### 6) Build Signature Matrix for DWLS
+breast_signature_dwls <- omnideconv::build_model(
+  single_cell_object = breast_sc_counts2,
+  cell_type_annotations = breast_cell_types,
+  method = "dwls",
+  dwls_method = "mast_optimized",
+  pval_cutoff = 0.05,
+  diff_cutoff = 0.5,
+  ncores = 3,
+  verbose = TRUE)
+saveRDS(breast_signature_dwls, "breast_dwls_signature_FINAL.rds")
+
 lung_signature_dwls <- omnideconv::build_model(
   single_cell_object = lung_sc_counts2,
   cell_type_annotations = lung_cell_types,
@@ -73,44 +84,9 @@ lung_signature_dwls <- omnideconv::build_model(
   dwls_method = "mast_optimized",
   pval_cutoff = 0.05,
   diff_cutoff = 0.5,
-  ncores = 1,
+  ncores = 3,
   verbose = TRUE)
-saveRDS(lung_signature_dwls, "lung_signature_dwls.rds")
-
-# *Down sampling for breast data*
-# for reproducible sampling
-set.seed(123)
-# convert CAF labels into plain text
-breast_cell_types <- as.character(breast_cell_types)
-# attach each cell ID to its CAF label
-names(breast_cell_types) <- colnames(breast_sc_counts2)
-cells_per_type <- 200 # how many cells to sample from each CAF type
-# classify cells by CAF type + with 200 random cells in each + combine into a list
-cells_keep_breast <- unlist(
-  lapply(split(colnames(breast_sc_counts2), breast_cell_types), function(x) {
-    sample(x, min(length(x), cells_per_type))}))
-# build the smaller matrix
-# keep all genes but only the selected cells
-breast_sc_small <- breast_sc_counts2[, cells_keep_breast, drop = FALSE] 
-# their matching CAF labels
-breast_cell_types_small <- breast_cell_types[cells_keep_breast] 
-# keep genes expressed in at least 10 selected cells
-keep_genes_breast <- Matrix::rowSums(breast_sc_small > 0) >= 10
-# apply the gene filter to the small matrix
-breast_sc_small <- breast_sc_small[keep_genes_breast, , drop = FALSE]
-dim(breast_sc_small) # final matrix size
-table(breast_cell_types_small) # final selected cells from each CAF type
-
-breast_signature_dwls <- omnideconv::build_model(
-  single_cell_object = breast_sc_small,
-  cell_type_annotations = breast_cell_types_small,
-  method = "dwls",
-  dwls_method = "mast_optimized",
-  pval_cutoff = 0.05,
-  diff_cutoff = 0.5,
-  ncores = 1,
-  verbose = TRUE)
-saveRDS(breast_signature_dwls, "breast_signature_200dwls.rds")
+saveRDS(lung_signature_dwls, "lung_dwls_signature_FINAL.rds")
 
 ### 7) Run DWLS Deconvolution
 common_dwls_genes_breast <- intersect(rownames(breast_signature_dwls), rownames(breast_bulk_tpm2))
@@ -121,7 +97,7 @@ breast_dwls_est <- omnideconv::deconvolute(
   dwls_submethod = "DampenedWLS",
   normalize_results = TRUE,
   verbose = TRUE)
-write.csv(breast_dwls_est, "breast_dwls_estimates_subset200.csv")
+write.csv(breast_dwls_est, "breast_dwls_estimates_FINAL.csv")
 
 common_dwls_genes_lung <- intersect(rownames(lung_signature_dwls), rownames(lung_bulk_tpm2))
 lung_dwls_est <- omnideconv::deconvolute(
@@ -131,7 +107,7 @@ lung_dwls_est <- omnideconv::deconvolute(
   dwls_submethod = "DampenedWLS",
   normalize_results = TRUE,
   verbose = TRUE)
-write.csv(lung_dwls_est, "lung_dwls_estimates.csv")
+write.csv(lung_dwls_est, "lung_dwls_estimates_FINAL.csv")
 
 ### 8) Performance Evaluation Function
 evaluate_deconv <- function(truth, estimated) {
@@ -216,14 +192,27 @@ plot(plot_breast$truth,
      col = caf_colors_breast[plot_breast$CAFtype]) 
 
 abline(0, 1, col = "red", lty = 2, lwd = 1.8)
+
+### Add global correlation and RMSE to plot
+metrics_text_breast <- paste0(
+  "Global Pearson Correlation (r) = ", round(breast_dwls_eval$global_correlation, 3),
+  "\nGlobal RMSE = ", round(breast_dwls_eval$global_rmse, 3))
+text(
+  x = 0.09,
+  y = 0.45,
+  labels = metrics_text_breast,
+  adj = c(0, 1),
+  cex = 0.95,
+  font = 2)
+
 legend(
-  x = 0.26,
-  y = 0.47,
+  x = 0.265,
+  y = 0.465,
   legend = levels(as.factor(plot_breast$CAFtype)), 
   col = caf_colors_breast[levels(as.factor(plot_breast$CAFtype))], 
   pch = 15, 
-  cex = 0.6,
-  y.intersp = 0.6,
+  cex = 0.75,
+  y.intersp = 0.99,
   x.intersp = 0.5,
   bty = "n")
 
@@ -237,17 +226,27 @@ label_pos_breast$xpos <- label_pos_breast$truth
 label_pos_breast$ypos <- label_pos_breast$estimated + 0.07
 # Move only certain labels
 label_pos_breast$xpos[label_pos_breast$CAFtype == "apCAF"] <- 
-  label_pos_breast$truth[label_pos_breast$CAFtype == "apCAF"] + 0.03
+  label_pos_breast$truth[label_pos_breast$CAFtype == "apCAF"] + 0.035
 label_pos_breast$ypos[label_pos_breast$CAFtype == "apCAF"] <- 
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "apCAF"] + 0.015
-label_pos_breast$xpos[label_pos_breast$CAFtype == "tpCAF"] <- 
-  label_pos_breast$truth[label_pos_breast$CAFtype == "tpCAF"] + 0.030
-label_pos_breast$ypos[label_pos_breast$CAFtype == "tpCAF"] <- 
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "tpCAF"] + 0.02
-label_pos_breast$xpos[label_pos_breast$CAFtype == "rCAF"] <- 
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "apCAF"] + 0.005
+label_pos_breast$xpos[label_pos_breast$CAFtype == "tpCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "tpCAF"] + 0.037
+label_pos_breast$ypos[label_pos_breast$CAFtype == "tpCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "tpCAF"] + 0.01
+label_pos_breast$xpos[label_pos_breast$CAFtype == "rCAF"] <-
   label_pos_breast$truth[label_pos_breast$CAFtype == "rCAF"] - 0.02
-label_pos_breast$ypos[label_pos_breast$CAFtype == "rCAF"] <- 
+label_pos_breast$ypos[label_pos_breast$CAFtype == "rCAF"] <-
   label_pos_breast$estimated[label_pos_breast$CAFtype == "rCAF"] + 0.03
+label_pos_breast$xpos[label_pos_breast$CAFtype == "hsp_tpCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "hsp_tpCAF"] - 0.03
+label_pos_breast$xpos[label_pos_breast$CAFtype == "Pericyte"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "Pericyte"] - 0.01
+label_pos_breast$ypos[label_pos_breast$CAFtype == "vCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "vCAF"] + 0.11
+label_pos_breast$xpos[label_pos_breast$CAFtype == "mCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.025
+label_pos_breast$ypos[label_pos_breast$CAFtype == "mCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "mCAF"] + 0.09
 text(
   x = label_pos_breast$xpos,
   y = label_pos_breast$ypos,
@@ -261,20 +260,73 @@ plot_lung <- data.frame(
   CAFtype = rep(colnames(lung_truth), each = nrow(lung_truth)), 
   truth = as.vector(as.matrix(lung_truth)), 
   estimated = as.vector(as.matrix(lung_dwls_est))) 
-
+caf_colors_lung <- c(
+  "apCAF" = "black",
+  "iCAF" = "dodgerblue",
+  "mCAF" = "mediumorchid3",
+  "Pericyte" = "goldenrod2",
+  "rCAF" = "grey60",
+  "tpCAF" = "turquoise3",
+  "vCAF" = "hotpink3")
 plot(plot_lung$truth, 
      plot_lung$estimated, 
      xlab = "True cell-type proportions", 
      ylab = "Estimated cell-type proportions", 
      main = "DWLS deconvolution performance (lung data)", 
      pch = 16, 
-     col = as.factor(plot_lung$CAFtype)) 
+     col = caf_colors_lung[plot_lung$CAFtype]) 
 
-abline(0, 1, col = "red", lty = 2, lwd = 1.8) 
-legend("topright",
-  legend = levels(as.factor(plot_lung$CAFtype)),
-  col = seq_along(levels(as.factor(plot_lung$CAFtype))),
-  pch = 15,
-  cex = 0.7,
-  y.intersp = 0.7,
+abline(0, 1, col = "red", lty = 2, lwd = 1.8)
+
+### Add global correlation and RMSE to plot
+metrics_text_lung <- paste0(
+  "Global Pearson Correlation (r) = ", round(lung_dwls_eval$global_correlation, 3),
+  "\nGlobal RMSE = ", round(lung_dwls_eval$global_rmse, 3))
+text(
+  x = 0.03,
+  y = 0.44,
+  labels = metrics_text_lung,
+  adj = c(0, 1),
+  cex = 0.95,
+  font = 2)
+
+legend(
+  x = 0.31,
+  y = 0.44,
+  legend = levels(as.factor(plot_lung$CAFtype)), 
+  col = caf_colors_lung[levels(as.factor(plot_lung$CAFtype))], 
+  pch = 15, 
+  cex = 0.75,
+  y.intersp = 0.99,
+  x.intersp = 0.5,
   bty = "n")
+
+### Add CAF labels near each cluster
+label_pos_lung <- aggregate(
+  cbind(truth, estimated) ~ CAFtype,
+  data = plot_lung,
+  FUN = median)
+# Default: place labels slightly above clusters
+label_pos_lung$xpos <- label_pos_lung$truth
+label_pos_lung$ypos <- label_pos_lung$estimated + 0.07
+# Move only certain labels
+label_pos_lung$ypos[label_pos_lung$CAFtype == "apCAF"] <- 
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "apCAF"] + 0.05
+label_pos_lung$xpos[label_pos_lung$CAFtype == "vCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "vCAF"] + 0.055
+label_pos_lung$ypos[label_pos_lung$CAFtype == "vCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "vCAF"] + 0.005
+label_pos_lung$xpos[label_pos_lung$CAFtype == "rCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] - 0.305
+label_pos_lung$ypos[label_pos_lung$CAFtype == "rCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] - 0.01
+label_pos_lung$ypos[label_pos_lung$CAFtype == "Pericyte"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "Pericyte"] + 0.08
+label_pos_lung$xpos[label_pos_lung$CAFtype == "tpCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "tpCAF"] - 0.1
+text(
+  x = label_pos_lung$xpos,
+  y = label_pos_lung$ypos,
+  labels = label_pos_lung$CAFtype,
+  cex = 0.75,
+  font = 1)
