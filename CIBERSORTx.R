@@ -90,11 +90,11 @@ storage.mode(breast_sc_counts2_mat) <- "numeric"
 breast_signature_cibersort <- omnideconv::build_model_cibersortx(
   single_cell_object = breast_sc_counts2_mat,
   cell_type_annotations = breast_cell_types,
-  container = "apptainer",
+  container = c("apptainer"),
   container_path = "/data/containers/",
   verbose = TRUE,
   input_dir = "cibersortx_inputs/breast",
-  output_dir = "cibersortx_results/breast",
+  output_dir = "cibersortx_results",
   display_heatmap = TRUE,
   k_max = 999,
   filter = FALSE,
@@ -104,7 +104,7 @@ saveRDS(breast_signature_cibersort, "cibersortx_results/breast_cibersort_signatu
 lung_signature_cibersort <- omnideconv::build_model_cibersortx(
   single_cell_object = lung_sc_counts2,
   cell_type_annotations = lung_cell_types,
-  container = c("docker", "apptainer"),
+  container = c("apptainer"),
   container_path = "/data/containers/",
   verbose = TRUE,
   input_dir = "cibersortx_inputs/lung",
