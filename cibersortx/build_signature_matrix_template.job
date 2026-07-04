@@ -1,0 +1,57 @@
+#!/bin/bash
+#SBATCH --job-name=cibx_sig
+#SBATCH --output=cibx_sig_%x.%j.out
+#SBATCH --error=cibx_sig_%x.%j.err
+#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+
+set -e
+
+echo "Running on node: $(hostname)"
+echo "Started at: $(date)"
+echo "Submitted from: $SLURM_SUBMIT_DIR"
+
+cd "$SLURM_SUBMIT_DIR"
+
+start_time=$SECONDS
+
+SINGULARITY="/opt/ohpc/pub/libs/apptainer/1.3.2/bin/singularity"
+CONTAINER="/data/containers/fractions_latest.sif"
+
+# Change DATASET to breast or lung before submitting
+DATASET="breast"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+input_dir="$SCRIPT_DIR/cibersortx_inputs/$DATASET"
+output_dir="$SCRIPT_DIR/cibersortx_results/$DATASET"
+
+mkdir -p "$output_dir"
+
+echo "Dataset: $DATASET"
+echo "Current dir: $(pwd)"
+echo "Input dir: $input_dir"
+echo "Output dir: $output_dir"
+
+# Credentials should be exported in the terminal before running:
+# export CIBERSORTX_USERNAME="your_email"
+# export CIBERSORTX_TOKEN="your_token"
+
+: "${CIBERSORTX_USERNAME:?Please set CIBERSORTX_USERNAME}"
+: "${CIBERSORTX_TOKEN:?Please set CIBERSORTX_TOKEN}"
+
+"$SINGULARITY" exec \
+  --bind "$input_dir":/src/data \
+  --bind "$output_dir":/src/outdir \
+  "$CONTAINER" \
+  /src/CIBERSORTxFractions \
+  --username "$CIBERSORTX_USERNAME" \
+  --token "$CIBERSORTX_TOKEN" \
+  --single_cell TRUE \
+  --refsample /src/data/sample_file_for_cibersort.txt \
+  --remake TRUE
+
+elapsed=$(( SECONDS - start_time ))
+echo "Elapsed time: $elapsed seconds"
+echo "Finished at: $(date)"
