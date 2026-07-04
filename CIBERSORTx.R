@@ -158,3 +158,49 @@ if (file.exists(cibersortx_lung_signature_file)) {
   head(lung_signature[, 1:5])} else {
   message("Lung CIBERSORTx signature matrix not found yet. Run the lung SLURM job first.")}
 
+# Function to create CIBERSORTx Mixture File
+write_cibersortx_mixture <- function(bulk_matrix, signature_matrix, output_file) {
+  common_genes <- intersect(rownames(signature_matrix), rownames(bulk_matrix))
+  bulk_matrix2 <- bulk_matrix[common_genes, , drop = FALSE]
+  bulk_matrix2 <- as.matrix(bulk_matrix2)
+  storage.mode(bulk_matrix2) <- "numeric"
+  mixture_file <- cbind(
+    GeneSymbol = rownames(bulk_matrix2),
+    bulk_matrix2)
+  write.table(
+    mixture_file,
+    file = output_file,
+    sep = "\t",
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = TRUE)}
+
+### Create CIBERSORTx mixture file for breast
+write_cibersortx_mixture(
+  bulk_matrix = breast_bulk_tpm2,
+  signature_matrix = breast_signature,
+  output_file = "cibersortx/cibersortx_inputs/breast/mixture_file_for_cibersort.txt")
+
+### Create CIBERSORTx mixture file for lung
+write_cibersortx_mixture(
+  bulk_matrix = lung_bulk_tpm2,
+  signature_matrix = lung_signature,
+  output_file = "cibersortx/cibersortx_inputs/lung/mixture_file_for_cibersort.txt")
+
+### CIBERSORTx deconvolution is performed outside R (on Lugh) using:
+### run_cibersortx_deconvolution_breast.job / run_cibersortx_deconvolution_lung.job
+
+### READ IN CIBERSORTx DECONVOLUTION RESULTS
+breast_cibersortx_result_file <- "cibersortx/cibersortx_results/breast_deconvolution/CIBERSORTx_Results.txt"
+lung_cibersortx_result_file <- "cibersortx/cibersortx_results/lung_deconvolution/CIBERSORTx_Results.txt"
+
+breast_cibersortx_raw <- read.delim(
+  breast_cibersortx_result_file,
+  header = TRUE,sep = "\t",row.names = 1,check.names = FALSE)
+
+lung_cibersortx_raw <- read.delim(
+  lung_cibersortx_result_file,
+  header = TRUE,sep = "\t",row.names = 1,check.names = FALSE)
+
+head(breast_cibersortx_raw)
+head(lung_cibersortx_raw)
