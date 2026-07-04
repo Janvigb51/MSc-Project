@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=cibx_sig
-#SBATCH --output=cibx_sig_%x.%j.out
-#SBATCH --error=cibx_sig_%x.%j.err
+#SBATCH --output=cibersortx/logs/cibx_sig_%x.%j.out
+#SBATCH --error=cibersortx/logs/cibx_sig_%x.%j.err
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
