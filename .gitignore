@@ -7,3 +7,6 @@ CIBERSORTx_scref.txt
 CIBERSORTx_scref.txt 
 deconv_inputs/ 
 cibersortx_inputs/
+cibersortx/logs/
+*.out
+*.err
