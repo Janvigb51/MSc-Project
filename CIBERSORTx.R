@@ -67,7 +67,7 @@ lung_sc_counts2 <- lung_sc_counts[common_genes_lung, , drop = FALSE]
 lung_bulk_tpm2 <- lung_bulk_tpm[common_genes_lung, , drop = FALSE]
 stopifnot(all(rownames(lung_sc_counts2) == rownames(lung_bulk_tpm2)))
 
-### FOR CIBERSORTx SIGNATURE MATRIX CREATION
+### 6) FOR CIBERSORTx SIGNATURE MATRIX CREATION
 ### CIBERSORTx was run manually on Lugh using the CIBERSORTx fractions container.
 ### The omnideconv::build_model_cibersortx() function was not used because it failed
 ### with an rbind.Matrix type error. Therefore, the CIBERSORTx input file was generated
@@ -106,7 +106,7 @@ write_cibersortx_input <- function(sc_counts, cell_types, output_file) {
     row.names = FALSE,
     col.names = FALSE)}
 
-### Create CIBERSORTx input file for breast
+# Create CIBERSORTx input file for breast
 # this creates: cibersortx/cibersortx_inputs/breast/sample_file_for_cibersort.txt
 breast_cibersortx_input_file <- "cibersortx/cibersortx_inputs/breast/sample_file_for_cibersort.txt"
 if (!file.exists(breast_cibersortx_input_file)) {
@@ -115,7 +115,7 @@ if (!file.exists(breast_cibersortx_input_file)) {
     cell_types = breast_cell_types,
     output_file = breast_cibersortx_input_file)}
 
-### Create CIBERSORTx input file for lung
+# Create CIBERSORTx input file for lung
 # this creates: cibersortx/cibersortx_inputs/lung/sample_file_for_cibersort.txt
 lung_cibersortx_input_file <- "cibersortx/cibersortx_inputs/lung/sample_file_for_cibersort.txt"
 if (!file.exists(lung_cibersortx_input_file)) {
@@ -128,7 +128,7 @@ if (!file.exists(lung_cibersortx_input_file)) {
 ### build_signature_matrix_breast.job / build_signature_matrix_lung.job
 ### on Lugh with the CIBERSORTx Fractions Singularity container.
 
-### Breast CIBERSORTx signature matrix output
+# Breast CIBERSORTx signature matrix output
 cibersortx_breast_signature_file <- file.path("cibersortx","cibersortx_results","breast",
 "CIBERSORTx_sample_file_for_cibersort_inferred_phenoclasses.CIBERSORTx_sample_file_for_cibersort_inferred_refsample.bm.K999.txt")
 
@@ -143,7 +143,7 @@ if (file.exists(cibersortx_breast_signature_file)) {
   head(breast_signature[, 1:5])} else {
   message("Breast CIBERSORTx signature matrix not found yet. Run the breast SLURM job first.")}
 
-### Lung CIBERSORTx signature matrix output
+# Lung CIBERSORTx signature matrix output
 cibersortx_lung_signature_file <- file.path("cibersortx","cibersortx_results","lung",
 "CIBERSORTx_sample_file_for_cibersort_inferred_phenoclasses.CIBERSORTx_sample_file_for_cibersort_inferred_refsample.bm.K999.txt")
 
@@ -158,7 +158,7 @@ if (file.exists(cibersortx_lung_signature_file)) {
   head(lung_signature[, 1:5])} else {
   message("Lung CIBERSORTx signature matrix not found yet. Run the lung SLURM job first.")}
 
-# Function to create CIBERSORTx Mixture File
+### 7) Function to create CIBERSORTx Mixture File
 write_cibersortx_mixture <- function(bulk_matrix, signature_matrix, output_file) {
   common_genes <- intersect(rownames(signature_matrix), rownames(bulk_matrix))
   bulk_matrix2 <- bulk_matrix[common_genes, , drop = FALSE]
@@ -175,13 +175,13 @@ write_cibersortx_mixture <- function(bulk_matrix, signature_matrix, output_file)
     row.names = FALSE,
     col.names = TRUE)}
 
-### Create CIBERSORTx mixture file for breast
+# Create CIBERSORTx mixture file for breast
 write_cibersortx_mixture(
   bulk_matrix = breast_bulk_tpm2,
   signature_matrix = breast_signature,
   output_file = "cibersortx/cibersortx_inputs/breast/mixture_file_for_cibersort.txt")
 
-### Create CIBERSORTx mixture file for lung
+# Create CIBERSORTx mixture file for lung
 write_cibersortx_mixture(
   bulk_matrix = lung_bulk_tpm2,
   signature_matrix = lung_signature,
@@ -190,9 +190,9 @@ write_cibersortx_mixture(
 ### CIBERSORTx deconvolution is performed outside R (on Lugh) using:
 ### run_cibersortx_deconvolution_breast.job / run_cibersortx_deconvolution_lung.job
 
-### READ IN CIBERSORTx DECONVOLUTION RESULTS
-breast_cibersortx_result_file <- "cibersortx/cibersortx_results/breast_deconvolution/CIBERSORTx_Results.txt"
-lung_cibersortx_result_file <- "cibersortx/cibersortx_results/lung_deconvolution/CIBERSORTx_Results.txt"
+### 8) READ IN CIBERSORTx DECONVOLUTION RESULTS
+breast_cibersortx_result_file <- "cibersortx/cibersortx_results/breast_deconvolution/CIBERSORTx_Adjusted.txt"
+lung_cibersortx_result_file <- "cibersortx/cibersortx_results/lung_deconvolution/CIBERSORTx_Adjusted.txt"
 
 breast_cibersortx_raw <- read.delim(
   breast_cibersortx_result_file,
@@ -204,3 +204,290 @@ lung_cibersortx_raw <- read.delim(
 
 head(breast_cibersortx_raw)
 head(lung_cibersortx_raw)
+colnames(breast_cibersortx_raw)
+colnames(lung_cibersortx_raw)
+
+# Clean CIBERSORTx estimated matrices (matching CAF sybtypes in truth & estimated)
+breast_cibersortx_est <- breast_cibersortx_raw[
+  , intersect(colnames(breast_truth), colnames(breast_cibersortx_raw)),
+  drop = FALSE]
+lung_cibersortx_est <- lung_cibersortx_raw[
+  , intersect(colnames(lung_truth), colnames(lung_cibersortx_raw)),
+  drop = FALSE]
+# Convert to numeric matrices
+breast_cibersortx_est <- as.matrix(breast_cibersortx_est)
+storage.mode(breast_cibersortx_est) <- "numeric"
+lung_cibersortx_est <- as.matrix(lung_cibersortx_est)
+storage.mode(lung_cibersortx_est) <- "numeric"
+
+### 9) Performance Evaluation Function
+evaluate_deconv <- function(truth, estimated) {
+  # Find shared samples and CAF types
+  common_samples <- intersect(rownames(truth), rownames(estimated))
+  common_celltypes <- intersect(colnames(truth), colnames(estimated))
+  # Match truth and estimated matrices
+  truth <- truth[common_samples, common_celltypes, drop = FALSE]
+  estimated <- estimated[common_samples, common_celltypes, drop = FALSE]
+  # Convert to numeric matrices
+  truth <- as.matrix(truth)
+  estimated <- as.matrix(estimated)
+  storage.mode(truth) <- "numeric"
+  storage.mode(estimated) <- "numeric"
+  # Safety checks
+  stopifnot(all(rownames(truth) == rownames(estimated)))
+  stopifnot(all(colnames(truth) == colnames(estimated)))
+  # Global Pearson correlation
+  global_correlation <- cor(
+    as.vector(truth),
+    as.vector(estimated),
+    use = "complete.obs")
+  # Cell-type-specific Pearson correlation
+  correlation_by_celltype <- sapply(colnames(truth), function(ct) {
+    cor(truth[, ct], estimated[, ct], use = "complete.obs")})
+  # Global RMSE
+  global_rmse <- sqrt(mean((truth - estimated)^2, na.rm = TRUE))
+  # Cell-type-specific RMSE
+  rmse_by_celltype <- sapply(colnames(truth), function(ct) {
+    sqrt(mean((truth[, ct] - estimated[, ct])^2, na.rm = TRUE))})
+  # Return everything together
+  return(list(
+    truth_matched = truth,
+    estimated_matched = estimated,
+    global_correlation = global_correlation,
+    correlation_by_celltype = correlation_by_celltype,
+    global_rmse = global_rmse,
+    rmse_by_celltype = rmse_by_celltype))}
+
+# Evaluate Breast CIBERSORTx
+breast_cibs_eval <- evaluate_deconv(
+  truth = breast_truth,
+  estimated = breast_cibersortx_est)
+breast_cibs_eval$global_correlation
+breast_cibs_eval$correlation_by_celltype
+breast_cibs_eval$global_rmse
+breast_cibs_eval$rmse_by_celltype
+
+# Evaluate Lung CIBERSORTx
+lung_cibs_eval <- evaluate_deconv(
+  truth = lung_truth,
+  estimated = lung_cibersortx_est)
+lung_cibs_eval$global_correlation
+lung_cibs_eval$correlation_by_celltype
+lung_cibs_eval$global_rmse
+lung_cibs_eval$rmse_by_celltype
+
+# Save global performance results
+cibersortx_global_metrics <- data.frame(
+  Dataset = c("Breast", "Lung"),
+  Method = "CIBERSORTx",
+  Global_Correlation = c(
+    breast_cibs_eval$global_correlation,
+    lung_cibs_eval$global_correlation),
+  Global_RMSE = c(
+    breast_cibs_eval$global_rmse,
+    lung_cibs_eval$global_rmse))
+
+cibersortx_global_metrics
+write.csv(cibersortx_global_metrics,
+          "cibersortx/cibersortx_results/cibersortx_global_metrics.csv",
+          row.names = FALSE)
+
+# Save per-cell-type results
+cibersortx_celltype_metrics <- rbind(
+  data.frame(
+    Dataset = "Breast",
+    Method = "CIBERSORTx",
+    CAFtype = names(breast_cibs_eval$correlation_by_celltype),
+    Correlation = as.numeric(breast_cibs_eval$correlation_by_celltype),
+    RMSE = as.numeric(breast_cibs_eval$rmse_by_celltype)),
+  data.frame(
+    Dataset = "Lung",
+    Method = "CIBERSORTx",
+    CAFtype = names(lung_cibs_eval$correlation_by_celltype),
+    Correlation = as.numeric(lung_cibs_eval$correlation_by_celltype),
+    RMSE = as.numeric(lung_cibs_eval$rmse_by_celltype)))
+
+cibersortx_celltype_metrics
+write.csv(cibersortx_celltype_metrics,
+          "cibersortx/cibersortx_results/cibersortx_celltype_metrics.csv",
+          row.names = FALSE)
+
+### 10) Plot Results colored by CAF type
+### BREAST
+plot_breast_cibs <- data.frame(
+  sample = rep(rownames(breast_truth), times = ncol(breast_truth)), 
+  CAFtype = rep(colnames(breast_truth), each = nrow(breast_truth)), 
+  truth = as.vector(as.matrix(breast_truth)), 
+  estimated = as.vector(as.matrix(breast_cibersortx_est))) 
+caf_colors_breast <- c(
+  "apCAF" = "black",
+  "dCAF" = "palevioletred2",
+  "hsp_tpCAF" = "limegreen",
+  "iCAF" = "dodgerblue3",
+  "IDO_CAF" = "darkorange",
+  "mCAF" = "mediumorchid3",
+  "Pericyte" = "goldenrod2",
+  "rCAF" = "grey60",
+  "tpCAF" = "turquoise3",
+  "vCAF" = "hotpink3")
+plot(plot_breast_cibs$truth, 
+     plot_breast_cibs$estimated, 
+     xlab = "True cell-type proportions", 
+     ylab = "Estimated cell-type proportions", 
+     main = "CIBERSORTx deconvolution performance (breast data)", 
+     pch = 16, 
+     col = caf_colors_breast[plot_breast_cibs$CAFtype]) 
+
+abline(0, 1, col = "red", lty = 2, lwd = 1.8)
+
+### Add global correlation and RMSE to plot
+metrics_text_breast <- paste0(
+  "Global Pearson Correlation (r) = ", round(breast_cibs_eval$global_correlation, 3),
+  "\nGlobal RMSE = ", round(breast_cibs_eval$global_rmse, 3))
+text(
+  x = 0.05,
+  y = 0.45,
+  labels = metrics_text_breast,
+  adj = c(0, 1),
+  cex = 0.95,
+  font = 2)
+
+legend(
+  x = - 0.005,
+  y = 0.47,
+  legend = levels(as.factor(plot_breast_cibs$CAFtype)), 
+  col = caf_colors_breast[levels(as.factor(plot_breast_cibs$CAFtype))], 
+  pch = 15, 
+  cex = 0.75,
+  y.intersp = 0.99,
+  x.intersp = 0.5,
+  bty = "n")
+
+### Add CAF labels near each cluster
+label_pos_breast <- aggregate(
+  cbind(truth, estimated) ~ CAFtype,
+  data = plot_breast_cibs,
+  FUN = median)
+# Default: place labels slightly above clusters
+label_pos_breast$xpos <- label_pos_breast$truth
+label_pos_breast$ypos <- label_pos_breast$estimated + 0.07
+# Move only certain labels
+label_pos_breast$ypos[label_pos_breast$CAFtype == "hsp_tpCAF"] <- 
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "hsp_tpCAF"] + 0.08
+label_pos_breast$xpos[label_pos_breast$CAFtype == "IDO_CAF"] <- 
+  label_pos_breast$truth[label_pos_breast$CAFtype == "IDO_CAF"] + 0.035
+label_pos_breast$ypos[label_pos_breast$CAFtype == "IDO_CAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "IDO_CAF"] + 0.07
+label_pos_breast$xpos[label_pos_breast$CAFtype == "tpCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "tpCAF"] + 0.035
+label_pos_breast$ypos[label_pos_breast$CAFtype == "tpCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "tpCAF"] + 0.035
+label_pos_breast$xpos[label_pos_breast$CAFtype == "apCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "apCAF"] + 0.037
+label_pos_breast$ypos[label_pos_breast$CAFtype == "apCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "apCAF"] - 0.01
+label_pos_breast$xpos[label_pos_breast$CAFtype == "rCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "rCAF"] - 0.025
+label_pos_breast$ypos[label_pos_breast$CAFtype == "rCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "rCAF"] - 0.01
+label_pos_breast$ypos[label_pos_breast$CAFtype == "Pericyte"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "Pericyte"] + 0.09
+label_pos_breast$xpos[label_pos_breast$CAFtype == "vCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "vCAF"] + 0.02
+label_pos_breast$ypos[label_pos_breast$CAFtype == "vCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "vCAF"] + 0.04
+label_pos_breast$xpos[label_pos_breast$CAFtype == "iCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "iCAF"] - 0.008
+label_pos_breast$ypos[label_pos_breast$CAFtype == "iCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "iCAF"] + 0.085
+label_pos_breast$xpos[label_pos_breast$CAFtype == "mCAF"] <-
+  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.01
+text(
+  x = label_pos_breast$xpos,
+  y = label_pos_breast$ypos,
+  labels = label_pos_breast$CAFtype,
+  cex = 0.75,
+  font = 1)
+
+### LUNG
+plot_lung_cibs <- data.frame(
+  sample = rep(rownames(lung_truth), times = ncol(lung_truth)), 
+  CAFtype = rep(colnames(lung_truth), each = nrow(lung_truth)), 
+  truth = as.vector(as.matrix(lung_truth)), 
+  estimated = as.vector(as.matrix(lung_cibersortx_est))) 
+caf_colors_lung <- c(
+  "apCAF" = "black",
+  "iCAF" = "dodgerblue",
+  "mCAF" = "mediumorchid3",
+  "Pericyte" = "goldenrod2",
+  "rCAF" = "grey60",
+  "tpCAF" = "turquoise3",
+  "vCAF" = "hotpink3")
+plot(plot_lung_cibs$truth, 
+     plot_lung_cibs$estimated, 
+     xlab = "True cell-type proportions", 
+     ylab = "Estimated cell-type proportions", 
+     main = "CIBERSORTx deconvolution performance (lung data)", 
+     pch = 16, 
+     col = caf_colors_lung[plot_lung_cibs$CAFtype]) 
+
+abline(0, 1, col = "red", lty = 2, lwd = 1.8)
+
+### Add global correlation and RMSE to plot
+metrics_text_lung <- paste0(
+  "Global Pearson Correlation (r) = ", round(lung_cibs_eval$global_correlation, 3),
+  "\nGlobal RMSE = ", round(lung_cibs_eval$global_rmse, 3))
+text(
+  x = 0.05,
+  y = 0.46,
+  labels = metrics_text_lung,
+  adj = c(0, 1),
+  cex = 0.95,
+  font = 2)
+
+legend(
+  x = - 0.0055,
+  y = 0.475,
+  legend = levels(as.factor(plot_lung_cibs$CAFtype)), 
+  col = caf_colors_lung[levels(as.factor(plot_lung_cibs$CAFtype))], 
+  pch = 15, 
+  cex = 0.75,
+  y.intersp = 0.99,
+  x.intersp = 0.5,
+  bty = "n")
+
+### Add CAF labels near each cluster
+label_pos_lung <- aggregate(
+  cbind(truth, estimated) ~ CAFtype,
+  data = plot_lung_cibs,
+  FUN = median)
+# Default: place labels slightly above clusters
+label_pos_lung$xpos <- label_pos_lung$truth
+label_pos_lung$ypos <- label_pos_lung$estimated + 0.07
+# Move only certain labels
+label_pos_lung$xpos[label_pos_lung$CAFtype == "rCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "rCAF"] - 0.005
+label_pos_lung$ypos[label_pos_lung$CAFtype == "rCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] + 0.038
+label_pos_lung$xpos[label_pos_lung$CAFtype == "vCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "vCAF"] + 0.02
+label_pos_lung$ypos[label_pos_lung$CAFtype == "vCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "vCAF"] + 0.1
+label_pos_lung$xpos[label_pos_lung$CAFtype == "Pericyte"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "Pericyte"] - 0.01
+label_pos_lung$ypos[label_pos_lung$CAFtype == "Pericyte"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "Pericyte"] + 0.13
+label_pos_lung$xpos[label_pos_lung$CAFtype == "tpCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "tpCAF"] - 0.012
+label_pos_lung$xpos[label_pos_lung$CAFtype == "iCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "iCAF"] + 0.015
+label_pos_lung$xpos[label_pos_lung$CAFtype == "mCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "mCAF"] - 0.015
+label_pos_lung$ypos[label_pos_lung$CAFtype == "mCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "mCAF"] + 0.08
+text(
+  x = label_pos_lung$xpos,
+  y = label_pos_lung$ypos,
+  labels = label_pos_lung$CAFtype,
+  cex = 0.75,
+  font = 1)                         
