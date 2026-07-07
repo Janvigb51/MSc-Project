@@ -1,3 +1,6 @@
+# If deconvolution has already been run
+# jump to QUICK START (line 105)
+
 install.packages("gitcreds")
 library(gitcreds)
 
@@ -99,6 +102,21 @@ head(lung_truth)
 saveRDS(breast_truth, file.path(results_dir, "instaprism_breast_truth.rds"))
 saveRDS(lung_truth, file.path(results_dir, "instaprism_lung_truth.rds"))
 
+############################################################
+### QUICK START: Resume from saved InstaPrism results
+### Use this section if deconvolution has already been run
+### and the .rds result files already exist.
+### This avoids rerunning InstaPrism deconvolution every time
+### for performance evaluation plotting & benchmarking.
+### (Comment out the below commands)
+############################################################
+# results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/instaprism_results"
+# breast_est <- readRDS(file.path(results_dir, "instaprism_breast_est.rds"))
+# lung_est <- readRDS(file.path(results_dir, "instaprism_lung_est.rds"))
+# breast_truth <- readRDS(file.path(results_dir, "instaprism_breast_truth.rds"))
+# lung_truth <- readRDS(file.path(results_dir, "instaprism_lung_truth.rds"))
+############################################################
+
 ## 4) Performance Evaluation Function
 evaluate_deconv <- function(truth, estimated) {
   # Find shared samples and CAF types
@@ -157,11 +175,19 @@ lung_instaprism_eval$rmse_by_celltype
 
 ### 11) Plot Results colored by CAF type
 ### BREAST
+### Match truth and estimated matrices first
+common_samples_breast <- intersect(rownames(breast_truth), rownames(breast_est))
+common_celltypes_breast <- intersect(colnames(breast_truth), colnames(breast_est))
+breast_truth_plot <- breast_truth[common_samples_breast, common_celltypes_breast, drop = FALSE]
+breast_est_plot <- breast_est[common_samples_breast, common_celltypes_breast, drop = FALSE]
+stopifnot(all(rownames(breast_truth_plot) == rownames(breast_est_plot)))
+stopifnot(all(colnames(breast_truth_plot) == colnames(breast_est_plot)))
+
 plot_breast <- data.frame(
-  sample = rep(rownames(breast_truth), times = ncol(breast_truth)), 
-  CAFtype = rep(colnames(breast_truth), each = nrow(breast_truth)), 
-  truth = as.vector(as.matrix(breast_truth)), 
-  estimated = as.vector(as.matrix(breast_est))) 
+  sample = rep(rownames(breast_truth_plot), times = ncol(breast_truth_plot)), 
+  CAFtype = rep(colnames(breast_truth_plot), each = nrow(breast_truth_plot)), 
+  truth = as.vector(as.matrix(breast_truth_plot)), 
+  estimated = as.vector(as.matrix(breast_est_plot))) 
 caf_colors_breast <- c(
   "apCAF" = "black",
   "dCAF" = "palevioletred2",
@@ -253,11 +279,19 @@ text(
   font = 1)
 
 ### LUNG
+### Match truth and estimated matrices first
+common_samples_lung <- intersect(rownames(lung_truth), rownames(lung_est))
+common_celltypes_lung <- intersect(colnames(lung_truth), colnames(lung_est))
+lung_truth_plot <- lung_truth[common_samples_lung, common_celltypes_lung, drop = FALSE]
+lung_est_plot <- lung_est[common_samples_lung, common_celltypes_lung, drop = FALSE]
+stopifnot(all(rownames(lung_truth_plot) == rownames(lung_est_plot)))
+stopifnot(all(colnames(lung_truth_plot) == colnames(lung_est_plot)))
+
 plot_lung <- data.frame(
-  sample = rep(rownames(lung_truth), times = ncol(lung_truth)),
-  CAFtype = rep(colnames(lung_truth), each = nrow(lung_truth)),
-  truth = as.vector(as.matrix(lung_truth)),
-  estimated = as.vector(as.matrix(lung_est)))
+  sample = rep(rownames(lung_truth_plot), times = ncol(lung_truth_plot)),
+  CAFtype = rep(colnames(lung_truth_plot), each = nrow(lung_truth_plot)),
+  truth = as.vector(as.matrix(lung_truth_plot)),
+  estimated = as.vector(as.matrix(lung_est_plot)))
 caf_colors_lung <- c(
   "apCAF" = "black",
   "iCAF" = "dodgerblue3",
