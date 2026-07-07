@@ -1,3 +1,6 @@
+# If deconvolution has already been run
+# jump to QUICK START (line 129)
+
 # Load the required packages
 library(omnideconv)
 library(SimBu)
@@ -51,8 +54,22 @@ lung_bulk_tpm <- sweep(lung_bulk, 2, colSums(lung_bulk), "/") * 1e6
 ### 4) True CAF proportions from SimBu (for performance evaluation)
 breast_truth <- read.delim("../deconv_inputs/cords-breast-100samples-2000cells-20240618/bulk_props_2000cells_100samps.txt",
   header = TRUE, sep = "\t", row.names = 1, check.names = FALSE)
+breast_truth <- as.matrix(breast_truth)
+storage.mode(breast_truth) <- "numeric"
+dim(breast_truth)
+head(breast_truth)
+
 lung_truth <- read.delim("../deconv_inputs/cords-lung-100samples-2000cells-20240618/bulk_props_2000cells_100samps.txt",
   header = TRUE, sep = "\t", row.names = 1, check.names = FALSE)
+lung_truth <- as.matrix(lung_truth)
+storage.mode(lung_truth) <- "numeric"
+dim(lung_truth)
+head(lung_truth)
+
+# SAVE RESULTS
+results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/dwls_results"
+saveRDS(breast_truth, file.path(results_dir, "dwls_breast_truth.rds"))
+saveRDS(lung_truth, file.path(results_dir, "dwls_lung_truth.rds"))
 
 ### 5) Check and Match genes between single cell and bulk
 common_genes_breast <- intersect(rownames(breast_sc_counts), rownames(breast_bulk_tpm))
@@ -108,6 +125,27 @@ lung_dwls_est <- omnideconv::deconvolute(
   normalize_results = TRUE,
   verbose = TRUE)
 write.csv(lung_dwls_est, "dwls_results/lung_dwls_estimates_FINAL.csv")
+
+############################################################
+### QUICK START: Resume from saved DWLS results
+### Use this section if deconvolution has already been run
+### and the .csv result files already exist.
+### This avoids rerunning DWLS deconvolution every time
+### for performance evaluation plotting & benchmarking.
+### (Comment out the below commands)
+############################################################
+# results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/dwls_results"
+# breast_dwls_est <- read.csv(file.path(results_dir, "breast_dwls_estimates_FINAL.csv"),
+# row.names = 1, check.names = FALSE)
+# breast_dwls_est <- as.matrix(breast_dwls_est)
+# storage.mode(breast_dwls_est) <- "numeric"
+# lung_dwls_est <- read.csv(file.path(results_dir, "lung_dwls_estimates_FINAL.csv"),
+# row.names = 1, check.names = FALSE)
+# lung_dwls_est <- as.matrix(lung_dwls_est)
+# storage.mode(lung_dwls_est) <- "numeric"
+# breast_truth <- readRDS(file.path(results_dir, "dwls_breast_truth.rds"))
+# lung_truth <- readRDS(file.path(results_dir, "dwls_lung_truth.rds"))
+############################################################
 
 ### 8) Performance Evaluation Function
 evaluate_deconv <- function(truth, estimated) {
@@ -167,11 +205,15 @@ lung_dwls_eval$rmse_by_celltype
 
 ### 11) Plot Results colored by CAF type
 ### BREAST
+## Take the matching matrices
+breast_truth_plot <- breast_dwls_eval$truth_matched
+breast_est_plot <- breast_dwls_eval$estimated_matched
+
 plot_breast <- data.frame(
-  sample = rep(rownames(breast_truth), times = ncol(breast_truth)), 
-  CAFtype = rep(colnames(breast_truth), each = nrow(breast_truth)), 
-  truth = as.vector(as.matrix(breast_truth)), 
-  estimated = as.vector(as.matrix(breast_dwls_est))) 
+  sample = rep(rownames(breast_truth_plot), times = ncol(breast_truth_plot)), 
+  CAFtype = rep(colnames(breast_truth_plot), each = nrow(breast_truth_plot)), 
+  truth = as.vector(as.matrix(breast_truth_plot)), 
+  estimated = as.vector(as.matrix(breast_est_plot))) 
 caf_colors_breast <- c(
   "apCAF" = "black",
   "dCAF" = "palevioletred2",
@@ -198,7 +240,7 @@ metrics_text_breast <- paste0(
   "Global Pearson Correlation (r) = ", round(breast_dwls_eval$global_correlation, 3),
   "\nGlobal RMSE = ", round(breast_dwls_eval$global_rmse, 3))
 text(
-  x = 0.09,
+  x = 0.05,
   y = 0.45,
   labels = metrics_text_breast,
   adj = c(0, 1),
@@ -206,7 +248,7 @@ text(
   font = 2)
 
 legend(
-  x = 0.265,
+  x = - 0.01,
   y = 0.465,
   legend = levels(as.factor(plot_breast$CAFtype)), 
   col = caf_colors_breast[levels(as.factor(plot_breast$CAFtype))], 
@@ -226,27 +268,37 @@ label_pos_breast$xpos <- label_pos_breast$truth
 label_pos_breast$ypos <- label_pos_breast$estimated + 0.07
 # Move only certain labels
 label_pos_breast$xpos[label_pos_breast$CAFtype == "apCAF"] <- 
-  label_pos_breast$truth[label_pos_breast$CAFtype == "apCAF"] + 0.035
+  label_pos_breast$truth[label_pos_breast$CAFtype == "apCAF"] + 0.02
 label_pos_breast$ypos[label_pos_breast$CAFtype == "apCAF"] <- 
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "apCAF"] + 0.005
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "apCAF"] + 0.17
+label_pos_breast$xpos[label_pos_breast$CAFtype == "IDO_CAF"] <- 
+  label_pos_breast$truth[label_pos_breast$CAFtype == "IDO_CAF"] + 0.045
+label_pos_breast$ypos[label_pos_breast$CAFtype == "IDO_CAF"] <- 
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "IDO_CAF"] + 0.06
 label_pos_breast$xpos[label_pos_breast$CAFtype == "tpCAF"] <-
-  label_pos_breast$truth[label_pos_breast$CAFtype == "tpCAF"] + 0.037
+  label_pos_breast$truth[label_pos_breast$CAFtype == "tpCAF"] + 0.04
 label_pos_breast$ypos[label_pos_breast$CAFtype == "tpCAF"] <-
   label_pos_breast$estimated[label_pos_breast$CAFtype == "tpCAF"] + 0.01
 label_pos_breast$xpos[label_pos_breast$CAFtype == "rCAF"] <-
-  label_pos_breast$truth[label_pos_breast$CAFtype == "rCAF"] - 0.02
+  label_pos_breast$truth[label_pos_breast$CAFtype == "rCAF"] - 0.002
 label_pos_breast$ypos[label_pos_breast$CAFtype == "rCAF"] <-
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "rCAF"] + 0.03
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "rCAF"] - 0.01
 label_pos_breast$xpos[label_pos_breast$CAFtype == "hsp_tpCAF"] <-
   label_pos_breast$truth[label_pos_breast$CAFtype == "hsp_tpCAF"] - 0.03
+label_pos_breast$ypos[label_pos_breast$CAFtype == "hsp_tpCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "hsp_tpCAF"] + 0.14
+label_pos_breast$ypos[label_pos_breast$CAFtype == "dCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "dCAF"] + 0.09
 label_pos_breast$xpos[label_pos_breast$CAFtype == "Pericyte"] <-
   label_pos_breast$truth[label_pos_breast$CAFtype == "Pericyte"] - 0.01
 label_pos_breast$ypos[label_pos_breast$CAFtype == "vCAF"] <-
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "vCAF"] + 0.11
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "vCAF"] + 0.08
+label_pos_breast$ypos[label_pos_breast$CAFtype == "iCAF"] <-
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "iCAF"] + 0.09
 label_pos_breast$xpos[label_pos_breast$CAFtype == "mCAF"] <-
-  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.025
+  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.028
 label_pos_breast$ypos[label_pos_breast$CAFtype == "mCAF"] <-
-  label_pos_breast$estimated[label_pos_breast$CAFtype == "mCAF"] + 0.09
+  label_pos_breast$estimated[label_pos_breast$CAFtype == "mCAF"] + 0.07
 text(
   x = label_pos_breast$xpos,
   y = label_pos_breast$ypos,
@@ -255,11 +307,15 @@ text(
   font = 1)
 
 ### LUNG
+### Take the matching matrices
+lung_truth_plot <- lung_dwls_eval$truth_matched
+lung_est_plot <- lung_dwls_eval$estimated_matched
+
 plot_lung <- data.frame(
-  sample = rep(rownames(lung_truth), times = ncol(lung_truth)), 
-  CAFtype = rep(colnames(lung_truth), each = nrow(lung_truth)), 
-  truth = as.vector(as.matrix(lung_truth)), 
-  estimated = as.vector(as.matrix(lung_dwls_est))) 
+  sample = rep(rownames(lung_truth_plot), times = ncol(lung_truth_plot)), 
+  CAFtype = rep(colnames(lung_truth_plot), each = nrow(lung_truth_plot)), 
+  truth = as.vector(as.matrix(lung_truth_plot)), 
+  estimated = as.vector(as.matrix(lung_est_plot))) 
 caf_colors_lung <- c(
   "apCAF" = "black",
   "iCAF" = "dodgerblue",
@@ -283,7 +339,7 @@ metrics_text_lung <- paste0(
   "Global Pearson Correlation (r) = ", round(lung_dwls_eval$global_correlation, 3),
   "\nGlobal RMSE = ", round(lung_dwls_eval$global_rmse, 3))
 text(
-  x = 0.03,
+  x = 0.05,
   y = 0.44,
   labels = metrics_text_lung,
   adj = c(0, 1),
@@ -291,8 +347,8 @@ text(
   font = 2)
 
 legend(
-  x = 0.31,
-  y = 0.44,
+  x = -0.01,
+  y = 0.45,
   legend = levels(as.factor(plot_lung$CAFtype)), 
   col = caf_colors_lung[levels(as.factor(plot_lung$CAFtype))], 
   pch = 15, 
@@ -310,23 +366,70 @@ label_pos_lung <- aggregate(
 label_pos_lung$xpos <- label_pos_lung$truth
 label_pos_lung$ypos <- label_pos_lung$estimated + 0.07
 # Move only certain labels
+label_pos_lung$xpos[label_pos_lung$CAFtype == "apCAF"] <- 
+  label_pos_lung$truth[label_pos_lung$CAFtype == "apCAF"] - 0.005
 label_pos_lung$ypos[label_pos_lung$CAFtype == "apCAF"] <- 
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "apCAF"] + 0.05
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "apCAF"] + 0.06
 label_pos_lung$xpos[label_pos_lung$CAFtype == "vCAF"] <-
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "vCAF"] + 0.055
+  label_pos_lung$truth[label_pos_lung$CAFtype == "vCAF"] + 0.03
 label_pos_lung$ypos[label_pos_lung$CAFtype == "vCAF"] <-
   label_pos_lung$estimated[label_pos_lung$CAFtype == "vCAF"] + 0.005
 label_pos_lung$xpos[label_pos_lung$CAFtype == "rCAF"] <-
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] - 0.305
+  label_pos_lung$truth[label_pos_lung$CAFtype == "rCAF"] + 0.05
 label_pos_lung$ypos[label_pos_lung$CAFtype == "rCAF"] <-
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] - 0.01
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "rCAF"] + 0.09
+label_pos_lung$xpos[label_pos_lung$CAFtype == "Pericyte"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "Pericyte"] - 0.01
 label_pos_lung$ypos[label_pos_lung$CAFtype == "Pericyte"] <-
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "Pericyte"] + 0.08
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "Pericyte"] + 0.07
 label_pos_lung$xpos[label_pos_lung$CAFtype == "tpCAF"] <-
-  label_pos_lung$estimated[label_pos_lung$CAFtype == "tpCAF"] - 0.1
+  label_pos_lung$truth[label_pos_lung$CAFtype == "tpCAF"] + 0.035
+label_pos_lung$ypos[label_pos_lung$CAFtype == "tpCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "tpCAF"] - 0.005
+label_pos_lung$xpos[label_pos_lung$CAFtype == "iCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "iCAF"] - 0.018
+label_pos_lung$xpos[label_pos_lung$CAFtype == "mCAF"] <-
+  label_pos_lung$truth[label_pos_lung$CAFtype == "mCAF"] - 0.0175
+label_pos_lung$ypos[label_pos_lung$CAFtype == "mCAF"] <-
+  label_pos_lung$estimated[label_pos_lung$CAFtype == "mCAF"] + 0.04
 text(
   x = label_pos_lung$xpos,
   y = label_pos_lung$ypos,
   labels = label_pos_lung$CAFtype,
   cex = 0.75,
-  font = 1)                         
+  font = 1)
+
+# Safety checks
+all.equal(
+  cor(plot_breast$truth, plot_breast$estimated, use = "complete.obs"),
+  breast_dwls_eval$global_correlation)
+all.equal(
+  cor(plot_lung$truth, plot_lung$estimated, use = "complete.obs"),
+  lung_dwls_eval$global_correlation)
+
+## 9) Faceted plot per CAF type
+library(ggplot2)
+## BREAST
+ggplot(plot_breast, aes(x = truth, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, colour = "red",
+              linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ CAFtype, ncol = 5) +
+  coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
+  theme_bw() +
+  labs(
+    title = "DWLS performance by CAF type (breast data)",
+    x = "True cell-type proportion",
+    y = "Estimated cell-type proportion")
+## LUNG
+ggplot(plot_lung, aes(x = truth, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, colour = "red",
+              linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ CAFtype, ncol = 4) +
+  coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
+  theme_bw() +
+  labs(
+    title = "DWLS performance by CAF type (lung data)",
+    x = "True cell-type proportion",
+    y = "Estimated cell-type proportion")
