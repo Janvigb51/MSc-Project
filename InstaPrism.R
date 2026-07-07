@@ -1,5 +1,5 @@
 # If deconvolution has already been run
-# jump to QUICK START (line 105)
+# jump to QUICK START (line 106)
 
 install.packages("gitcreds")
 library(gitcreds)
@@ -45,6 +45,7 @@ dim(lung_bulk_expr) # 19142 genes in lung
 lung_bulk_expr[1:5, 1:5]
 
 ### 2) Prepare the reference
+# Use/load the necessary objects from SimBu.R
 set.seed(123)
 breast_refPhi_obj <- InstaPrism::refPrepare(sc_Expr = sparse_matrix_breast, 
 cell.type.labels = as.character(breast_annotation$cell_type),
@@ -72,7 +73,7 @@ lung_est = t(lung_deconv@Post.ini.ct@theta)
 head(lung_est)
 
 # SAVE RESULTS
-results_dir <- "C:/Users/janvi/Desktop/MSc Project/instaprism_results"
+results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/instaprism_results"
 
 saveRDS(breast_refPhi_obj, file.path(results_dir, "instaprism_breast_refphi_obj.rds"))
 saveRDS(lung_refPhi_obj, file.path(results_dir, "instaprism_lung_refphi_obj.rds"))
@@ -175,13 +176,9 @@ lung_instaprism_eval$rmse_by_celltype
 
 ### 11) Plot Results colored by CAF type
 ### BREAST
-### Match truth and estimated matrices first
-common_samples_breast <- intersect(rownames(breast_truth), rownames(breast_est))
-common_celltypes_breast <- intersect(colnames(breast_truth), colnames(breast_est))
-breast_truth_plot <- breast_truth[common_samples_breast, common_celltypes_breast, drop = FALSE]
-breast_est_plot <- breast_est[common_samples_breast, common_celltypes_breast, drop = FALSE]
-stopifnot(all(rownames(breast_truth_plot) == rownames(breast_est_plot)))
-stopifnot(all(colnames(breast_truth_plot) == colnames(breast_est_plot)))
+## Take the matching matrices
+breast_truth_plot <- breast_instaprism_eval$truth_matched
+breast_est_plot <- breast_instaprism_eval$estimated_matched
 
 plot_breast <- data.frame(
   sample = rep(rownames(breast_truth_plot), times = ncol(breast_truth_plot)), 
@@ -279,13 +276,9 @@ text(
   font = 1)
 
 ### LUNG
-### Match truth and estimated matrices first
-common_samples_lung <- intersect(rownames(lung_truth), rownames(lung_est))
-common_celltypes_lung <- intersect(colnames(lung_truth), colnames(lung_est))
-lung_truth_plot <- lung_truth[common_samples_lung, common_celltypes_lung, drop = FALSE]
-lung_est_plot <- lung_est[common_samples_lung, common_celltypes_lung, drop = FALSE]
-stopifnot(all(rownames(lung_truth_plot) == rownames(lung_est_plot)))
-stopifnot(all(colnames(lung_truth_plot) == colnames(lung_est_plot)))
+### Take the matching matrices
+lung_truth_plot <- lung_instaprism_eval$truth_matched
+lung_est_plot <- lung_instaprism_eval$estimated_matched
 
 plot_lung <- data.frame(
   sample = rep(rownames(lung_truth_plot), times = ncol(lung_truth_plot)),
@@ -356,6 +349,14 @@ text(
   labels = label_pos_lung$CAFtype,
   cex = 0.75,
   font = 1)
+
+# Safety checks
+all.equal(
+  cor(plot_breast$truth, plot_breast$estimated, use = "complete.obs"),
+  breast_instaprism_eval$global_correlation)
+all.equal(
+  cor(plot_lung$truth, plot_lung$estimated, use = "complete.obs"),
+  lung_instaprism_eval$global_correlation)
 
 ## 9) Faceted plot per CAF type
 library(ggplot2)
