@@ -365,7 +365,7 @@ ggplot(plot_breast, aes(x = truth, y = estimated)) +
   geom_point(size = 1.8, alpha = 0.7) +
   geom_abline(intercept = 0, slope = 1, colour = "red",
               linetype = "dashed", linewidth = 0.8) +
-  facet_wrap(~ CAFtype) +
+  facet_wrap(~ CAFtype, ncol = 5) +
   coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
   theme_bw() +
   labs(
@@ -377,7 +377,7 @@ ggplot(plot_lung, aes(x = truth, y = estimated)) +
   geom_point(size = 1.8, alpha = 0.7) +
   geom_abline(intercept = 0, slope = 1, colour = "red",
               linetype = "dashed", linewidth = 0.8) +
-  facet_wrap(~ CAFtype) +
+  facet_wrap(~ CAFtype, ncol = 4) +
   coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
   theme_bw() +
   labs(
