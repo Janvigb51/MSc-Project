@@ -1,0 +1,3 @@
+"Dataset","Method","Global_Correlation","Global_RMSE"
+"Breast","DWLS",0.92337563840421,0.0487961678913387
+"Lung","DWLS",0.956322378965719,0.0384908363883241
