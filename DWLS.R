@@ -132,6 +132,7 @@ write.csv(lung_dwls_est, "dwls_results/lung_dwls_estimates_FINAL.csv")
 ### and the .csv result files already exist.
 ### This avoids rerunning DWLS deconvolution every time
 ### for performance evaluation plotting & benchmarking.
+# Replace results_dir with personal directory
 ### (Comment out the below commands)
 ############################################################
 # results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/dwls_results"
@@ -202,6 +203,42 @@ lung_dwls_eval$global_correlation
 lung_dwls_eval$correlation_by_celltype
 lung_dwls_eval$global_rmse
 lung_dwls_eval$rmse_by_celltype
+
+# Save global performance results
+dwls_global_metrics <- data.frame(
+  Dataset = c("Breast", "Lung"),
+  Method = "DWLS",
+  Global_Correlation = c(
+    breast_dwls_eval$global_correlation,
+    lung_dwls_eval$global_correlation),
+  Global_RMSE = c(
+    breast_dwls_eval$global_rmse,
+    lung_dwls_eval$global_rmse))
+
+dwls_global_metrics
+write.csv(dwls_global_metrics,
+          file.path(results_dir, "dwls_global_metrics.csv"),
+          row.names = FALSE)
+
+# Save per-cell-type results
+dwls_celltype_metrics <- rbind(
+  data.frame(
+    Dataset = "Breast",
+    Method = "DWLS",
+    CAFtype = names(breast_dwls_eval$correlation_by_celltype),
+    Correlation = as.numeric(breast_dwls_eval$correlation_by_celltype),
+    RMSE = as.numeric(breast_dwls_eval$rmse_by_celltype)),
+  data.frame(
+    Dataset = "Lung",
+    Method = "DWLS",
+    CAFtype = names(lung_dwls_eval$correlation_by_celltype),
+    Correlation = as.numeric(lung_dwls_eval$correlation_by_celltype),
+    RMSE = as.numeric(lung_dwls_eval$rmse_by_celltype)))
+
+dwls_celltype_metrics
+write.csv(dwls_celltype_metrics,
+          file.path(results_dir, "dwls_celltype_metrics.csv"),
+          row.names = FALSE)
 
 ### 11) Plot Results colored by CAF type
 ### BREAST
