@@ -1,3 +1,6 @@
+# If deconvolution has already been run
+# jump to QUICK START (line 201)
+
 # Load any required packages
 library(omnideconv)
 library(SimBu)
@@ -55,6 +58,11 @@ breast_truth <- read.delim("../deconv_inputs/cords-breast-100samples-2000cells-2
 header = TRUE, sep = "\t", row.names = 1, check.names = FALSE)
 lung_truth <- read.delim("../deconv_inputs/cords-lung-100samples-2000cells-20240618/bulk_props_2000cells_100samps.txt",
 header = TRUE, sep = "\t", row.names = 1, check.names = FALSE)
+
+# SAVE RESULTS
+results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/cibersortx/cibersortx_results/"
+saveRDS(breast_truth, file.path(results_dir, "cibersort_breast_truth.rds"))
+saveRDS(lung_truth, file.path(results_dir, "cibersort_lung_truth.rds"))
 
 ### 5) Check and Match genes between single cell and bulk data
 common_genes_breast <- intersect(rownames(breast_sc_counts), rownames(breast_bulk_tpm))
@@ -125,7 +133,7 @@ if (!file.exists(lung_cibersortx_input_file)) {
     output_file = lung_cibersortx_input_file)}
 
 ### The CIBERSORTx signature matrices are generated outside R using:
-### build_signature_matrix_breast.job / build_signature_matrix_lung.job
+### build_signature_matrix_template.job adapted to breast & lung data
 ### on Lugh with the CIBERSORTx Fractions Singularity container.
 
 # Breast CIBERSORTx signature matrix output
@@ -188,11 +196,21 @@ write_cibersortx_mixture(
   output_file = "cibersortx/cibersortx_inputs/lung/mixture_file_for_cibersort.txt")
 
 ### CIBERSORTx deconvolution is performed outside R (on Lugh) using:
-### run_cibersortx_deconvolution_breast.job / run_cibersortx_deconvolution_lung.job
+### run_cibersortx_deconvolution_template.job adapted to breast & lung data
+
+############################################################
+### QUICK START: Resume from saved CIBERSORTx outputs
+### Use this section after CIBERSORTx has already been run on Lugh.
+### This reloads the saved truth files and reads the completed
+### CIBERSORTx_Adjusted.txt deconvolution outputs for evaluation/plotting.
+############################################################
+results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/cibersortx/cibersortx_results"
+breast_truth <- readRDS(file.path(results_dir, "cibersort_breast_truth.rds"))
+lung_truth <- readRDS(file.path(results_dir, "cibersort_lung_truth.rds"))
 
 ### 8) READ IN CIBERSORTx DECONVOLUTION RESULTS
-breast_cibersortx_result_file <- "cibersortx/cibersortx_results/breast_deconvolution/CIBERSORTx_Adjusted.txt"
-lung_cibersortx_result_file <- "cibersortx/cibersortx_results/lung_deconvolution/CIBERSORTx_Adjusted.txt"
+breast_cibersortx_result_file <- file.path(results_dir, "breast_deconvolution", "CIBERSORTx_Adjusted.txt")
+lung_cibersortx_result_file <- file.path (results_dir, "lung_deconvolution", "CIBERSORTx_Adjusted.txt")
 
 breast_cibersortx_raw <- read.delim(
   breast_cibersortx_result_file,
@@ -289,8 +307,8 @@ cibersortx_global_metrics <- data.frame(
 
 cibersortx_global_metrics
 write.csv(cibersortx_global_metrics,
-          "cibersortx/cibersortx_results/cibersortx_global_metrics.csv",
-          row.names = FALSE)
+file.path(results_dir, "cibersortx_global_metrics.csv"),
+row.names = FALSE)
 
 # Save per-cell-type results
 cibersortx_celltype_metrics <- rbind(
@@ -309,16 +327,20 @@ cibersortx_celltype_metrics <- rbind(
 
 cibersortx_celltype_metrics
 write.csv(cibersortx_celltype_metrics,
-          "cibersortx/cibersortx_results/cibersortx_celltype_metrics.csv",
-          row.names = FALSE)
+file.path(results_dir, "cibersortx_celltype_metrics.csv"),
+row.names = FALSE)
 
 ### 10) Plot Results colored by CAF type
 ### BREAST
+# Take the matching matrices
+breast_truth_plot <- breast_cibs_eval$truth_matched
+breast_est_plot <- breast_cibs_eval$estimated_matched
+
 plot_breast_cibs <- data.frame(
-  sample = rep(rownames(breast_truth), times = ncol(breast_truth)), 
-  CAFtype = rep(colnames(breast_truth), each = nrow(breast_truth)), 
-  truth = as.vector(as.matrix(breast_truth)), 
-  estimated = as.vector(as.matrix(breast_cibersortx_est))) 
+  sample = rep(rownames(breast_truth_plot), times = ncol(breast_truth_plot)), 
+  CAFtype = rep(colnames(breast_truth_plot), each = nrow(breast_truth_plot)), 
+  truth = as.vector(as.matrix(breast_truth_plot)), 
+  estimated = as.vector(as.matrix(breast_est_plot))) 
 caf_colors_breast <- c(
   "apCAF" = "black",
   "dCAF" = "palevioletred2",
@@ -345,7 +367,7 @@ metrics_text_breast <- paste0(
   "Global Pearson Correlation (r) = ", round(breast_cibs_eval$global_correlation, 3),
   "\nGlobal RMSE = ", round(breast_cibs_eval$global_rmse, 3))
 text(
-  x = 0.05,
+  x = 0.04,
   y = 0.45,
   labels = metrics_text_breast,
   adj = c(0, 1),
@@ -401,7 +423,7 @@ label_pos_breast$xpos[label_pos_breast$CAFtype == "iCAF"] <-
 label_pos_breast$ypos[label_pos_breast$CAFtype == "iCAF"] <-
   label_pos_breast$estimated[label_pos_breast$CAFtype == "iCAF"] + 0.085
 label_pos_breast$xpos[label_pos_breast$CAFtype == "mCAF"] <-
-  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.01
+  label_pos_breast$truth[label_pos_breast$CAFtype == "mCAF"] - 0.015
 text(
   x = label_pos_breast$xpos,
   y = label_pos_breast$ypos,
@@ -410,11 +432,15 @@ text(
   font = 1)
 
 ### LUNG
+# Take the matching matrices
+lung_truth_plot <- lung_cibs_eval$truth_matched
+lung_est_plot <- lung_cibs_eval$estimated_matched
+
 plot_lung_cibs <- data.frame(
-  sample = rep(rownames(lung_truth), times = ncol(lung_truth)), 
-  CAFtype = rep(colnames(lung_truth), each = nrow(lung_truth)), 
-  truth = as.vector(as.matrix(lung_truth)), 
-  estimated = as.vector(as.matrix(lung_cibersortx_est))) 
+  sample = rep(rownames(lung_truth_plot), times = ncol(lung_truth_plot)), 
+  CAFtype = rep(colnames(lung_truth_plot), each = nrow(lung_truth_plot)), 
+  truth = as.vector(as.matrix(lung_truth_plot)), 
+  estimated = as.vector(as.matrix(lung_est_plot))) 
 caf_colors_lung <- c(
   "apCAF" = "black",
   "iCAF" = "dodgerblue",
@@ -490,4 +516,39 @@ text(
   y = label_pos_lung$ypos,
   labels = label_pos_lung$CAFtype,
   cex = 0.75,
-  font = 1)                         
+  font = 1)
+
+# Safety checks
+all.equal(
+  cor(plot_breast_cibs$truth, plot_breast_cibs$estimated, use = "complete.obs"),
+  breast_cibs_eval$global_correlation)
+all.equal(
+  cor(plot_lung_cibs$truth, plot_lung_cibs$estimated, use = "complete.obs"),
+  lung_cibs_eval$global_correlation)
+
+## 9) Faceted plot per CAF type
+library(ggplot2)
+## BREAST
+ggplot(plot_breast_cibs, aes(x = truth, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, colour = "red",
+              linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ CAFtype, ncol = 5) +
+  coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
+  theme_bw() +
+  labs(
+    title = "CIBERSORTx performance by CAF type (breast data)",
+    x = "True cell-type proportion",
+    y = "Estimated cell-type proportion")
+## LUNG
+ggplot(plot_lung_cibs, aes(x = truth, y = estimated)) +
+  geom_point(size = 1.8, alpha = 0.7) +
+  geom_abline(intercept = 0, slope = 1, colour = "red",
+              linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ CAFtype, ncol = 4) +
+  coord_equal(xlim = c(0, 0.42), ylim = c(0, 0.42)) +
+  theme_bw() +
+  labs(
+    title = "CIBERSORTx performance by CAF type (lung data)",
+    x = "True cell-type proportion",
+    y = "Estimated cell-type proportion")
