@@ -109,6 +109,7 @@ saveRDS(lung_truth, file.path(results_dir, "instaprism_lung_truth.rds"))
 ### and the .rds result files already exist.
 ### This avoids rerunning InstaPrism deconvolution every time
 ### for performance evaluation plotting & benchmarking.
+# Replace results_dir with personal directory
 ### (Comment out the below commands)
 ############################################################
 # results_dir <- "C:/Users/janvi/Desktop/MSc Project/MSc Project R/instaprism_results"
@@ -173,6 +174,42 @@ lung_instaprism_eval$global_correlation
 lung_instaprism_eval$correlation_by_celltype
 lung_instaprism_eval$global_rmse
 lung_instaprism_eval$rmse_by_celltype
+
+# Save global performance results
+instaprism_global_metrics <- data.frame(
+  Dataset = c("Breast", "Lung"),
+  Method = "InstaPrism",
+  Global_Correlation = c(
+    breast_instaprism_eval$global_correlation,
+    lung_instaprism_eval$global_correlation),
+  Global_RMSE = c(
+    breast_instaprism_eval$global_rmse,
+    lung_instaprism_eval$global_rmse))
+
+instaprism_global_metrics
+write.csv(instaprism_global_metrics,
+          file.path(results_dir, "instaprism_global_metrics.csv"),
+          row.names = FALSE)
+
+# Save per-cell-type results
+instaprism_celltype_metrics <- rbind(
+  data.frame(
+    Dataset = "Breast",
+    Method = "InstaPrism",
+    CAFtype = names(breast_instaprism_eval$correlation_by_celltype),
+    Correlation = as.numeric(breast_instaprism_eval$correlation_by_celltype),
+    RMSE = as.numeric(breast_instaprism_eval$rmse_by_celltype)),
+  data.frame(
+    Dataset = "Lung",
+    Method = "InstaPrism",
+    CAFtype = names(lung_instaprism_eval$correlation_by_celltype),
+    Correlation = as.numeric(lung_instaprism_eval$correlation_by_celltype),
+    RMSE = as.numeric(lung_instaprism_eval$rmse_by_celltype)))
+
+instaprism_celltype_metrics
+write.csv(instaprism_celltype_metrics,
+          file.path(results_dir, "instaprism_celltype_metrics.csv"),
+          row.names = FALSE)
 
 ### 11) Plot Results colored by CAF type
 ### BREAST
