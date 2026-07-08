@@ -1,0 +1,3 @@
+"Dataset","Method","Global_Correlation","Global_RMSE"
+"Breast","InstaPrism",0.792580587578971,0.059579018732606
+"Lung","InstaPrism",0.84752338401617,0.0818560032122895
