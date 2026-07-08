@@ -65,6 +65,22 @@ view(lung_annotation)
 stopifnot(all(breast_annotation$ID == colnames(sparse_matrix_breast)))
 stopifnot(all(lung_annotation$ID == colnames(sparse_matrix_lung)))
 
+# Save cleaned SimBu input objects
+simbu_input_dir <- "simbu_inputs"
+dir.create(simbu_input_dir, showWarnings = FALSE)
+saveRDS(sparse_matrix_breast,
+        file.path(simbu_input_dir, "breast_sparse_matrix.rds"))
+saveRDS(sparse_matrix_lung,
+        file.path(simbu_input_dir, "lung_sparse_matrix.rds"))
+saveRDS(breast_annotation,
+        file.path(simbu_input_dir, "breast_annotation.rds"))
+saveRDS(lung_annotation,
+        file.path(simbu_input_dir, "lung_annotation.rds"))
+saveRDS(breast_cell_id_map,
+        file.path(simbu_input_dir, "breast_cell_id_map.rds"))
+saveRDS(lung_cell_id_map,
+        file.path(simbu_input_dir, "lung_cell_id_map.rds"))
+
 ### 3) Simulation
 cords_breast <- SimBu::dataset(
   annotation = breast_annotation, #cell_id belonging to a cell type
@@ -78,6 +94,15 @@ cords_lung <- SimBu::dataset(
   #tpm_matrix = NULL,
   name = "CAFtype")
 
+## SAVE SIMBU DATASET OBEJCTS
+simbu_input_dir <- "simbu_inputs"
+dir.create(simbu_input_dir, showWarnings = FALSE)
+saveRDS(cords_breast,
+        file.path(simbu_input_dir, "cords_breast_simbu.rds"))
+saveRDS(cords_lung,
+        file.path(simbu_input_dir, "cords_lung_simbu.rds"))
+
+## RUN SIMULATION
 print("simulating data")
 breast_simulation <- SimBu::simulate_bulk(
   data = cords_breast,
