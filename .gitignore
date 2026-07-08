@@ -10,3 +10,6 @@ cibersortx_inputs/
 cibersortx/logs/
 *.out
 *.err
+# Generated input/intermediate files
+simbu_inputs/
+controlled_scenarios/
