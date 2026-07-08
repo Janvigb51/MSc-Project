@@ -1,43 +1,115 @@
+## CONTROLLED SENSITIVITY SIMULATION ##
 # InstaPrism Deconvolution with changed proportions
 # Change scenarios in SimBu::simulate_bulk
 
-# 1) Collect all CAF types
-celltypes <- sort(unique(annot_table$cell_type))
-celltypes
+### 1) Load the data/annotations
+breast_annot <- readRDS("simbu_inputs/breast_annotation.rds")
+lung_annot <- readRDS("simbu_inputs/lung_annotation.rds")
 
-# 2) Collect original CAF proportions
-base_props <- prop.table(table(annot_table$cell_type))
-base_props <- base_props[celltypes]
-base_props
+### 2) Make controlled pseudobulk proportions where each CAF is varied
+make_scenario <- function(annot_table, target_cell, dataset_name = "dataset", 
+                          target_props = seq(0.02, 0.50, by = 0.04), replicates = 10,
+                          cell_type_col = "cell_type") {
+  # Check that the annotation table has the correct CAF subtype column
+  if (!cell_type_col %in% colnames(annot_table)) {
+    stop(cell_type_col, " column was not found in annot_table.")}
+  # Collect CAF types from whichever dataset you provide
+  celltypes <- sort(unique(annot_table[[cell_type_col]]))
+  # Check that the target CAF exists in this dataset
+  if (!target_cell %in% celltypes) {
+    stop(target_cell, " is not present in this dataset.")}
+  # Check target proportions are valid
+  if (any(target_props < 0 | target_props > 1)) {
+    stop("All target proportions must be between 0 and 1.")}
+  # Original CAF proportions in this dataset
+  base_props <- prop.table(table(annot_table[[cell_type_col]]))
+  base_props <- base_props[celltypes]
+  custom_rows <- list()
+  for (p in target_props) {
+    for (rep in seq_len(replicates)) {
+      other_cells <- setdiff(celltypes, target_cell)
+      # Keep the relative balance of the other CAF types
+      other_base <- base_props[other_cells]
+      other_base <- other_base / sum(other_base)
+      prop_vec <- setNames(rep(0, length(celltypes)), celltypes)
+      prop_vec[target_cell] <- p
+      prop_vec[other_cells] <- (1 - p) * other_base
+      sample_name <- paste0(
+        dataset_name, "_",
+        target_cell, "_",
+        sprintf("%.2f", p), "_",
+        "rep", rep)
+      custom_rows[[sample_name]] <- prop_vec}}
+  custom_scenario_data <- as.data.frame(do.call(rbind, custom_rows))
+  # Check every pseudobulk sample sums to 1
+  if (any(abs(rowSums(custom_scenario_data) - 1) > 1e-8)) {
+    stop("Some rows do not sum to 1.")}
+  return(custom_scenario_data)}
 
-# 3) Varying proportions with CUSTOM
-target_cell <- "vCAF"
-target_props <- seq(0.02, 0.50, by = 0.04)
-replicates <- 10
-custom_rows <- list()
-for (p in target_props) {
-  for (rep in seq_len(replicates)) {
-    other_cells <- setdiff(celltypes, target_cell)
-    
-    # distribute the remaining proportion across other CAF types
-    other_base <- base_props[other_cells]
-    other_base <- other_base / sum(other_base)
-    prop_vec <- setNames(rep(0, length(celltypes)), celltypes)
-    prop_vec[target_cell] <- p
-    prop_vec[other_cells] <- (1 - p) * other_base
-    sample_name <- paste0(
-      target_cell,
-      "_",
-      sprintf("%.2f", p),
-      "_rep",
-      rep
-    )
-    custom_rows[[sample_name]] <- prop_vec
-  }
-}
-custom_scenario_data <- as.data.frame(do.call(rbind, custom_rows))
+## WRAPPER FUNCTION
+make_all_scenarios <- function(annot_table, dataset_name,
+target_props = seq(0.02, 0.50, by = 0.04), replicates = 10,
+cell_type_col = "cell_type") {
+  caf_types <- sort(unique(annot_table[[cell_type_col]]))
+  scenario_list <- lapply(caf_types, function(ct) {
+    make_scenario(
+      annot_table = annot_table,
+      target_cell = ct,
+      dataset_name = dataset_name,
+      target_props = target_props,
+      replicates = replicates,
+      cell_type_col = cell_type_col)})
+  names(scenario_list) <- caf_types
+  return(scenario_list)}
 
-# 4) Simulation
+### 3) Make controlled scenarios for every CAF type in each dataset
+breast_scenarios <- make_all_scenarios(
+  annot_table = breast_annot,
+  dataset_name = "Breast",
+  target_props = seq(0.02, 0.50, by = 0.04),
+  replicates = 10)
+
+lung_scenarios <- make_all_scenarios(
+  annot_table = lung_annot,
+  dataset_name = "Lung",
+  target_props = seq(0.02, 0.50, by = 0.04),
+  replicates = 10)
+
+## SAVE CONTROLLED SCENARIOS
+controlled_dir <- "controlled_scenarios"
+dir.create(controlled_dir, showWarnings = FALSE)
+saveRDS(breast_scenarios, file.path(controlled_dir, "breast_all_controlled_scenarios.rds"))
+saveRDS(lung_scenarios, file.path(controlled_dir, "lung_all_controlled_scenarios.rds"))
+
+### 4) Simulate bulk samples with SimBu
+## Load controlled scenarios
+breast_scenarios <- readRDS("controlled_scenarios/breast_all_controlled_scenarios.rds")
+lung_scenarios <- readRDS("controlled_scenarios/lung_all_controlled_scenarios.rds")
+# Check available CAF types
+names(breast_scenarios)
+names(lung_scenarios)
+# For example (get the controlled proportion tables where mCAF is gradually changed)
+breast_scenarios[["mCAF"]]
+lung_scenarios[["mCAF"]]
+
+## Load simbu-ready datasets
+cords_breast <- readRDS("simbu_inputs/cords_breast_simbu.rds")
+cords_lung <- readRDS("simbu_inputs/cords_lung_simbu.rds")
+
+## SIMULATION FUNCTION
+simulate_spikein_bulk <- function(sc_data, custom_scenario_data, ncells = 2000, seed = 20240618) {
+  simulation_obj <- SimBu::simulate_bulk(
+    data = sc_data,
+    scenario = "custom",
+    custom_scenario_data = custom_scenario_data,
+    ncells = ncells,
+    nsamples = nrow(custom_scenario_data),
+    scaling_factor = "read_number",
+    seed = seed)
+  return(simulation_obj)}
+
+
+##########################################################################################################################
 simulation_vCAF_custom <- SimBu::simulate_bulk(
   data = cords_lung,
   scenario = "custom",
