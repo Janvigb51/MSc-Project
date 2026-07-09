@@ -62,7 +62,7 @@ cell_type_col = "cell_type") {
   names(scenario_list) <- caf_types
   return(scenario_list)}
 
-### 3) Make controlled scenarios for every CAF type in each dataset
+### Make controlled scenarios for every CAF type in each dataset
 breast_scenarios <- make_all_scenarios(
   annot_table = breast_annot,
   dataset_name = "Breast",
@@ -81,7 +81,7 @@ dir.create(controlled_dir, showWarnings = FALSE)
 saveRDS(breast_scenarios, file.path(controlled_dir, "breast_all_controlled_scenarios.rds"))
 saveRDS(lung_scenarios, file.path(controlled_dir, "lung_all_controlled_scenarios.rds"))
 
-### 4) Simulate bulk samples with SimBu
+### 3) Simulate bulk samples with SimBu
 ## Load controlled scenarios
 breast_scenarios <- readRDS("controlled_scenarios/breast_all_controlled_scenarios.rds")
 lung_scenarios <- readRDS("controlled_scenarios/lung_all_controlled_scenarios.rds")
@@ -108,6 +108,41 @@ simulate_spikein_bulk <- function(sc_data, custom_scenario_data, ncells = 2000, 
     seed = seed)
   return(simulation_obj)}
 
+## WRAPPER FUNCTION (for all scenarios)
+simulate_all_scenarios <- function(sc_data, scenario_list, ncells = 2000, seed = 20240618) {
+  simulation_list <- lapply(seq_along(scenario_list), function(i) {
+    caf_name <- names(scenario_list)[i]
+    message("Simulating: ", caf_name)
+    simulate_spikein_bulk(
+      sc_data = sc_data,
+      custom_scenario_data = scenario_list[[caf_name]],
+      ncells = ncells,
+      seed = seed + i)})
+  names(simulation_list) <- names(scenario_list)
+  return(simulation_list)}
+
+### Run Simulation for all CAF scenarios automatically
+breast_simulations <- simulate_all_scenarios(
+  sc_data = cords_breast,
+  scenario_list = breast_scenarios,
+  ncells = 2000,
+  seed = 20240618)
+
+lung_simulations <- simulate_all_scenarios(
+  sc_data = cords_lung,
+  scenario_list = lung_scenarios,
+  ncells = 2000,
+  seed = 20240618)
+
+## SAVE SIMULATED BULK OBJECTS
+sim_dir <- "controlled_simulations"
+dir.create(sim_dir, showWarnings = FALSE)
+saveRDS(
+  breast_simulations,
+  file.path(sim_dir, "breast_controlled_simulations.rds"))
+saveRDS(
+  lung_simulations,
+  file.path(sim_dir, "lung_controlled_simulations.rds"))
 
 ##########################################################################################################################
 simulation_vCAF_custom <- SimBu::simulate_bulk(
