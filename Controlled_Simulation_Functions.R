@@ -1,4 +1,49 @@
 ## SHARED FUNCTIONS SCRIPT ##
+# This script contains reusable functions for the controlled sensitivity simulations.
+
+# make_scenario()
+# Creates one custom SimBu proportion table where one CAF type is varied.
+
+# make_all_scenarios()
+# Repeats make_scenario() for every CAF type in a dataset.
+
+# simulate_spikein_bulk()
+# Uses SimBu to generate pseudobulk samples from one custom scenario.
+
+# simulate_all_scenarios()
+# Runs SimBu simulations for all CAF-type scenarios in a dataset.
+
+# run_instaprism_deconv()
+# Runs InstaPrism deconvolution on one simulated pseudobulk dataset.
+
+# run_dwls_deconv()
+# Runs DWLS deconvolution on one simulated pseudobulk dataset.
+
+# format_estimates()
+# Checks the deconvolution output orientation and transposes it if needed.
+
+# align_truth_estimated()
+# Aligns true and estimated CAF proportion matrices by sample and CAF type.
+
+# evaluate_controlled_result()
+# Calculates correlation, RMSE, and error for the controlled experiment.
+
+# run_instaprism_scenario()
+# Runs the full controlled workflow for one CAF type using InstaPrism.
+
+# run_dwls_scenario()
+# Runs the full controlled workflow for one CAF type using DWLS.
+
+# plot_target_spikein()
+# Plots true vs estimated proportions for the CAF type being varied.
+
+# plot_all_caf_behaviour()
+# Plots how all CAF types behave as the target CAF type is varied.
+
+# save_controlled_result()
+# Saves result objects, metric tables, and plots for one controlled experiment.
+
+########################################################################################################
 
 ### MAKE CONTROLLED PSEUDOBULKS FUNCTION (where each CAF is varied)
 make_scenario <- function(annot_table, target_cell, dataset_name = "dataset", 
@@ -119,6 +164,8 @@ container_path = "/data/containers/", verbose = TRUE) {
 format_estimates <- function(estimated_raw, truth_matrix) {
   estimated <- as.matrix(estimated_raw)
   mode(estimated) <- "numeric"
+  if (is.null(rownames(estimated)) || is.null(colnames(estimated))) {
+    stop("Estimated matrix has missing rownames or colnames. Check DWLS output format.")}
   # Case 1: already samples x CAF types
   if (all(rownames(truth_matrix) %in% rownames(estimated)) &&
       all(colnames(truth_matrix) %in% colnames(estimated))) {
@@ -149,3 +196,221 @@ align_truth_estimated <- function(simulation_obj, estimated) {
   return(list(
     truth = truth_aligned,
     estimated = estimated_aligned))}
+
+## EVALUATE CONTROLLED EXPERIMENT
+safe_cor <- function(x, y) {
+  if (sd(x, na.rm = TRUE) == 0 || sd(y, na.rm = TRUE) == 0) {
+    return(NA_real_)}
+  cor(x, y, use = "complete.obs")}
+
+evaluate_controlled_result <- function(truth, estimated, target_cell, dataset_name, method_name) {
+  if (!target_cell %in% colnames(truth)) {
+    stop(target_cell, " is not present in truth matrix.")}
+  # Target CAF only
+  target_df <- data.frame(
+    Method = method_name,
+    Dataset = dataset_name,
+    Sample = rownames(truth),
+    Target_CAF = target_cell,
+    True = as.numeric(truth[, target_cell]),
+    Estimated = as.numeric(estimated[, target_cell]))
+  target_df$Error <- target_df$Estimated - target_df$True
+  target_metrics <- data.frame(
+    Method = method_name,
+    Dataset = dataset_name,
+    Target_CAF = target_cell,
+    Correlation = safe_cor(target_df$True, target_df$Estimated),
+    RMSE = sqrt(mean((target_df$Estimated - target_df$True)^2)),
+    Mean_Error = mean(target_df$Error))
+  # All CAF type metrics
+  celltype_metrics <- bind_rows(lapply(colnames(truth), function(ct) {
+    true_values <- as.numeric(truth[, ct])
+    estimated_values <- as.numeric(estimated[, ct])
+    data.frame(
+      Method = method_name,
+      Dataset = dataset_name,
+      Target_CAF = target_cell,
+      Measured_CAF = ct,
+      Correlation = safe_cor(true_values, estimated_values),
+      RMSE = sqrt(mean((estimated_values - true_values)^2)),
+      Mean_Error = mean(estimated_values - true_values))}))
+  # Long dataframe for plotting behaviour of all CAFs
+  truth_long <- as.data.frame(truth) %>%
+    rownames_to_column("Sample") %>%
+    pivot_longer(
+      cols = -Sample,
+      names_to = "CAFtype",
+      values_to = "Proportion") %>%
+    mutate(Source = "Truth")
+  estimated_long <- as.data.frame(estimated) %>%
+    rownames_to_column("Sample") %>%
+    pivot_longer(
+      cols = -Sample,
+      names_to = "CAFtype",
+      values_to = "Proportion") %>%
+    mutate(Source = method_name)
+  target_map <- data.frame(
+    Sample = rownames(truth),
+    Target_True = as.numeric(truth[, target_cell]))
+  eval_long <- bind_rows(truth_long, estimated_long) %>%
+    left_join(target_map, by = "Sample") %>%
+    mutate(
+      Method = method_name,
+      Dataset = dataset_name,
+      Target_CAF = target_cell)
+  return(list(
+    target_df = target_df,
+    target_metrics = target_metrics,
+    celltype_metrics = celltype_metrics,
+    eval_long = eval_long))}
+
+## WRAPPER FUNCTION FOR 1 INSTAPRISM EXPERIMENT
+run_instaprism_scenario <- function(custom_scenario_data, sc_data, refPhi_obj, target_cell,
+                                    dataset_name, ncells = 2000, seed = 20240618) {
+  # 1. Simulate bulk
+  simulation_obj <- simulate_spikein_bulk(
+    sc_data = sc_data,
+    custom_scenario_data = custom_scenario_data,
+    ncells = ncells,
+    seed = seed)
+  # 2. Run InstaPrism
+  deconv <- run_instaprism_deconv(
+    simulation_obj = simulation_obj,
+    refPhi_obj = refPhi_obj)
+  # 3. Align truth and estimates
+  aligned <- align_truth_estimated(
+    simulation_obj = simulation_obj,
+    estimated = deconv$estimated)
+  # 4. Evaluate
+  evaluation <- evaluate_controlled_result(
+    truth = aligned$truth,
+    estimated = aligned$estimated,
+    target_cell = target_cell,
+    dataset_name = dataset_name,
+    method_name = "InstaPrism")
+  return(list(
+    method = "InstaPrism",
+    dataset = dataset_name,
+    target_cell = target_cell,
+    simulation = simulation_obj,
+    bulk_expr = deconv$bulk_expr,
+    deconv_result = deconv$deconv_result,
+    truth = aligned$truth,
+    estimated = aligned$estimated,
+    target_df = evaluation$target_df,
+    target_metrics = evaluation$target_metrics,
+    celltype_metrics = evaluation$celltype_metrics,
+    eval_long = evaluation$eval_long))}
+
+## WRAPPER FUNCTION FOR 1 DWLS EXPERIMENT
+run_dwls_scenario <- function(custom_scenario_data, sc_data, signature_matrix, target_cell,
+                              dataset_name, ncells = 2000, seed = 20240618,
+                              container = "apptainer",
+                              container_path = "/data/containers/") {
+  # 1. Simulate bulk
+  simulation_obj <- simulate_spikein_bulk(
+    sc_data = sc_data,
+    custom_scenario_data = custom_scenario_data,
+    ncells = ncells,
+    seed = seed)
+  # 2. Run DWLS
+  deconv <- run_dwls_deconv(
+    simulation_obj = simulation_obj,
+    signature_matrix = signature_matrix,
+    container = container,
+    container_path = container_path,
+    verbose = TRUE)
+  # 3. Format DWLS estimates
+  truth_raw <- as.matrix(simulation_obj$cell_fractions)
+  estimated <- format_estimates(
+    estimated_raw = deconv$deconv_result,
+    truth_matrix = truth_raw)
+  # 4. Align truth and estimates
+  aligned <- align_truth_estimated(
+    simulation_obj = simulation_obj,
+    estimated = estimated)
+  # 5. Evaluate
+  evaluation <- evaluate_controlled_result(
+    truth = aligned$truth,
+    estimated = aligned$estimated,
+    target_cell = target_cell,
+    dataset_name = dataset_name,
+    method_name = "DWLS")
+  return(list(
+    method = "DWLS",
+    dataset = dataset_name,
+    target_cell = target_cell,
+    simulation = simulation_obj,
+    bulk_expr = deconv$bulk_expr,
+    deconv_result = deconv$deconv_result,
+    truth = aligned$truth,
+    estimated = aligned$estimated,
+    target_df = evaluation$target_df,
+    target_metrics = evaluation$target_metrics,
+    celltype_metrics = evaluation$celltype_metrics,
+    eval_long = evaluation$eval_long))}
+
+## MAIN TARGET CAF SCATTER PLOT
+plot_target_spikein <- function(scenario_result) {
+  cor_value <- round(scenario_result$target_metrics$Correlation, 3)
+  rmse_value <- round(scenario_result$target_metrics$RMSE, 3)
+  ggplot(scenario_result$target_df, aes(x = True, y = Estimated)) +
+    geom_point(alpha = 0.7, colour = "black") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
+    annotate("text", x = -Inf, y = Inf, hjust = -0.1, vjust = 1.2,
+      label = paste0("Pearson Correlation = ", cor_value, "\nRMSE = ", rmse_value)) +
+    labs(
+      title = paste0("Deconvolution performance with varying ", scenario_result$target_cell),
+      x = paste0("True ", scenario_result$target_cell, " proportion"),
+      y = paste0("Estimated ", scenario_result$target_cell, " proportion")) +
+    theme_bw()}
+
+## BEHAVIOR OF ALL CAF TYPES
+plot_all_caf_behaviour <- function(scenario_result) {
+  ggplot(scenario_result$eval_long,
+         aes(x = Target_True, y = Proportion, colour = Source)) +
+    geom_point(alpha = 0.4) +
+    stat_summary(aes(group = Source), fun = mean, geom = "line", linewidth = 0.8) +
+    facet_wrap(~ CAFtype, scales = "free_y", ncol = 4) +
+    scale_colour_manual(
+      values = c(
+        "InstaPrism" = "#F8766D",
+        "DWLS" = "#F8766D",
+        "Truth" = "#00BFC4")) +
+    labs(
+      title = paste0("True vs estimated CAFs when ", scenario_result$target_cell, " is varied"),
+      x = paste0("True ", scenario_result$target_cell, " proportion"),
+      y = "CAF proportion") +
+    theme_bw()}
+
+## SAVE CONTROLLED RESULT
+save_controlled_result <- function(scenario_result, output_dir) {
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  dataset <- tolower(scenario_result$dataset)
+  method <- tolower(scenario_result$method)
+  target <- scenario_result$target_cell
+  prefix <- paste(dataset, method, target, sep = "_")
+  saveRDS(
+    scenario_result,
+    file.path(output_dir, paste0(prefix, "_full_result.rds")))
+  write_csv(
+    scenario_result$target_df,
+    file.path(output_dir, paste0(prefix, "_target_values.csv")))
+  write_csv(
+    scenario_result$target_metrics,
+    file.path(output_dir, paste0(prefix, "_target_metrics.csv")))
+  write_csv(
+    scenario_result$celltype_metrics,
+    file.path(output_dir, paste0(prefix, "_all_celltype_metrics.csv")))
+  ggsave(
+    filename = file.path(output_dir, paste0(prefix, "_target_plot.png")),
+    plot = plot_target_spikein(scenario_result),
+    width = 6,
+    height = 5,
+    dpi = 300)
+  ggsave(
+    filename = file.path(output_dir, paste0(prefix, "_all_caf_behaviour_plot.png")),
+    plot = plot_all_caf_behaviour(scenario_result),
+    width = 10,
+    height = 8,
+    dpi = 300)}
