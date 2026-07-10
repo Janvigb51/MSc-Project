@@ -1,7 +1,7 @@
 ## CONTROLLED SENSITIVITY SIMULATION ##
-# This script should be run once"
+# This script should be run once
 # Change scenarios in SimBu::simulate_bulk
-# Use functions from Controlled_Simulation_Functions.R"
+# Use functions from "Controlled_Simulation_Functions.R"
 source("Controlled_Simulation_Functions.R")
 
 ### 1) Load the data/annotations
@@ -23,7 +23,7 @@ lung_scenarios <- make_all_scenarios(
 
 ## SAVE CONTROLLED SCENARIOS
 controlled_dir <- "controlled_scenarios"
-dir.create(controlled_dir, showWarnings = FALSE)
+dir.create(controlled_dir, recursive = TRUE, showWarnings = FALSE)
 saveRDS(breast_scenarios, file.path(controlled_dir, "breast_all_controlled_scenarios.rds"))
 saveRDS(lung_scenarios, file.path(controlled_dir, "lung_all_controlled_scenarios.rds"))
 
@@ -56,15 +56,19 @@ lung_simulations <- simulate_all_scenarios(
 
 ## SAVE SIMULATED BULK OBJECTS
 sim_dir <- "controlled_simulations"
-dir.create(sim_dir, showWarnings = FALSE)
+dir.create(sim_dir, recursive = TRUE, showWarnings = FALSE)
 saveRDS(breast_simulations,
         file.path(sim_dir, "breast_controlled_simulations.rds"))
 saveRDS(lung_simulations,
         file.path(sim_dir, "lung_controlled_simulations.rds"))
 
-## Minor checks
+## Quick checks
 # For each CAF we have:
 # Simulated bulk expression to feed into deconvolution tools ($bulk)
 # And true known CAF proportions to compare against deconvolution estimates ($cell_fractions)
-breast_simulations[["mCAF"]]
-lung_simulations[["mCAF"]]
+names(breast_scenarios)
+names(lung_scenarios)
+dim(breast_scenarios[["mCAF"]])
+dim(lung_scenarios[["mCAF"]])
+names(breast_simulations[["mCAF"]])
+names(lung_simulations[["mCAF"]])
