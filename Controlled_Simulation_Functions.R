@@ -143,22 +143,32 @@ run_instaprism_deconv <- function(simulation_obj, refPhi_obj) {
     estimated = estimated))}
 
 ## DWLS DECONVOLUTION FUNCTION
-run_dwls_deconv <- function(simulation_obj, signature_matrix, container = "apptainer",
-container_path = "/data/containers/", verbose = TRUE) {
+run_dwls_deconv <- function(simulation_obj, signature_matrix, verbose = TRUE) {
   # Extract simulated bulk counts
-  bulk_expr <- SummarizedExperiment::assays(simulation_obj$bulk)[["bulk_counts"]]
-  bulk_expr <- as.matrix(bulk_expr)
-  # Run DWLS
+  bulk_counts <- SummarizedExperiment::assays(simulation_obj$bulk)[["bulk_counts"]]
+  bulk_counts <- as.matrix(bulk_counts)
+  mode(bulk_counts) <- "numeric"
+  # Convert counts to CPM/TPM-like scale, same idea as original DWLS script
+  bulk_tpm <- sweep(bulk_counts, 2, colSums(bulk_counts), "/") * 1e6
+  bulk_tpm[is.na(bulk_tpm)] <- 0
+  # Match genes between DWLS signature and simulated bulk
+  common_genes <- intersect(rownames(signature_matrix), rownames(bulk_tpm))
+  bulk_use <- bulk_tpm[common_genes, , drop = FALSE]
+  model_use <- signature_matrix[common_genes, , drop = FALSE]
+  # Run DWLS deconvolution
   deconv_result <- omnideconv::deconvolute(
-    bulk_gene_expression = bulk_expr,
-    signature = signature_matrix,
+    bulk_gene_expression = bulk_use,
+    model = model_use,
     method = "dwls",
-    container = container,
-    container_path = container_path,
+    dwls_submethod = "DampenedWLS",
+    normalize_results = TRUE,
     verbose = verbose)
+  estimated <- as.matrix(deconv_result)
+  mode(estimated) <- "numeric"
   return(list(
-    bulk_expr = bulk_expr,
-    deconv_result = deconv_result))}
+    bulk_expr = bulk_use,
+    deconv_result = deconv_result,
+    estimated = estimated))}
 
 ## FORMAT DECONVOLUTION RESULTS FUNCTION
 format_estimates <- function(estimated_raw, truth_matrix) {
@@ -304,9 +314,7 @@ run_instaprism_scenario <- function(custom_scenario_data, sc_data, refPhi_obj, t
 
 ## WRAPPER FUNCTION FOR 1 DWLS EXPERIMENT
 run_dwls_scenario <- function(custom_scenario_data, sc_data, signature_matrix, target_cell,
-                              dataset_name, ncells = 2000, seed = 20240618,
-                              container = "apptainer",
-                              container_path = "/data/containers/") {
+                              dataset_name, ncells = 2000, seed = 20240618) {
   # 1. Simulate bulk
   simulation_obj <- simulate_spikein_bulk(
     sc_data = sc_data,
@@ -317,13 +325,11 @@ run_dwls_scenario <- function(custom_scenario_data, sc_data, signature_matrix, t
   deconv <- run_dwls_deconv(
     simulation_obj = simulation_obj,
     signature_matrix = signature_matrix,
-    container = container,
-    container_path = container_path,
     verbose = TRUE)
   # 3. Format DWLS estimates
   truth_raw <- as.matrix(simulation_obj$cell_fractions)
   estimated <- format_estimates(
-    estimated_raw = deconv$deconv_result,
+    estimated_raw = deconv$estimated,
     truth_matrix = truth_raw)
   # 4. Align truth and estimates
   aligned <- align_truth_estimated(
