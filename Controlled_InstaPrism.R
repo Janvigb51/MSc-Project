@@ -9,8 +9,7 @@ suppressPackageStartupMessages({
   library(tibble)
   library(readr)
   library(ggplot2)
-  library(InstaPrism)
-})
+  library(InstaPrism)})
 
 # Load shared functions
 source("Controlled_Simulation_Functions.R")
