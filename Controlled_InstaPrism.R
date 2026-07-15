@@ -31,7 +31,7 @@ instaprism_controlled_dir <- "instaprism_results/controlled_spikein"
 dir.create(instaprism_controlled_dir, recursive = TRUE, showWarnings = FALSE)
 
 ## Optional: Change to TRUE and test 1 controlled scenario first (lung mCAF)
-## If it runs sucessfully change to FALSE to ignore later.
+## If it runs successfully change to FALSE to ignore later.
 if (FALSE) {
   lung_mCAF_instaprism <- run_instaprism_scenario(
     custom_scenario_data = lung_scenarios[["mCAF"]],
