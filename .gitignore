@@ -12,4 +12,5 @@ cibersortx/logs/
 *.err
 # Generated input/intermediate files
 simbu_inputs/
-controlled_scenarios/
+controlled_scenarios/backup_before_pull/
+.RDataTmp*
